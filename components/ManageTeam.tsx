@@ -462,20 +462,23 @@ export default function ManageTeam({ profileId, teamId, isLeader = false }: Mana
 
       {/* Navigation Tabs */}
       <div className="bg-white border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-        <div className="flex border-b-2 border-black">
+        <div
+          className="flex overflow-x-auto border-b-2 border-black [&::-webkit-scrollbar]:hidden"
+          style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}
+        >
           <button
             onClick={() => {
               setActiveSection('general')
               setConfirmTeamName('')
               setLeaveError('')
             }}
-            className={`px-6 py-3 font-black transition-colors ${
+            className={`px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-xs sm:text-sm font-black transition-colors whitespace-nowrap flex-shrink-0 ${
               activeSection === 'general'
                 ? 'bg-amber-400 text-black'
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            📝 GENERAL
+            <span className="text-sm sm:text-base">📝</span><span className="hidden sm:inline ml-1">GENERAL</span><span className="sm:hidden ml-1">GEN</span>
           </button>
           <button
             onClick={() => {
@@ -483,13 +486,13 @@ export default function ManageTeam({ profileId, teamId, isLeader = false }: Mana
               setConfirmTeamName('')
               setLeaveError('')
             }}
-            className={`px-6 py-3 font-black transition-colors border-l-2 border-black ${
+            className={`px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-xs sm:text-sm font-black transition-colors border-l-2 border-black whitespace-nowrap flex-shrink-0 ${
               activeSection === 'roles'
                 ? 'bg-amber-400 text-black'
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            👥 ROLES
+            <span className="text-sm sm:text-base">👥</span><span className="ml-1">ROLES</span>
           </button>
           <button
             onClick={() => {
@@ -497,13 +500,13 @@ export default function ManageTeam({ profileId, teamId, isLeader = false }: Mana
               setConfirmTeamName('')
               setLeaveError('')
             }}
-            className={`px-6 py-3 font-black transition-colors border-l-2 border-black ${
+            className={`px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-xs sm:text-sm font-black transition-colors border-l-2 border-black whitespace-nowrap flex-shrink-0 ${
               activeSection === 'tech'
                 ? 'bg-amber-400 text-black'
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            🛠️ TECH STACK
+            <span className="text-sm sm:text-base">🛠️</span><span className="hidden sm:inline ml-1">TECH STACK</span><span className="sm:hidden ml-1">TECH</span>
           </button>
           <button
             onClick={() => {
@@ -511,13 +514,13 @@ export default function ManageTeam({ profileId, teamId, isLeader = false }: Mana
               setConfirmTeamName('')
               setLeaveError('')
             }}
-            className={`px-6 py-3 font-black transition-colors border-l-2 border-black ${
+            className={`px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-xs sm:text-sm font-black transition-colors border-l-2 border-black whitespace-nowrap flex-shrink-0 ${
               activeSection === 'members'
                 ? 'bg-amber-400 text-black'
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            👨‍👩‍👧‍👦 TEAM MEMBERS
+            <span className="text-sm sm:text-base">👨‍👩‍👧‍👦</span><span className="hidden md:inline ml-1">TEAM MEMBERS</span><span className="md:hidden ml-1">TEAM</span>
           </button>
           <button
             onClick={() => {
@@ -525,17 +528,17 @@ export default function ManageTeam({ profileId, teamId, isLeader = false }: Mana
               setConfirmTeamName('')
               setLeaveError('')
             }}
-            className={`px-6 py-3 font-black transition-colors border-l-2 border-black ${
+            className={`px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-xs sm:text-sm font-black transition-colors border-l-2 border-black whitespace-nowrap flex-shrink-0 ${
               activeSection === 'leave'
                 ? 'bg-red-400 text-white'
                 : 'bg-white text-gray-600 hover:bg-red-100'
             }`}
           >
-            🚪 LEAVE TEAM
+            <span className="text-sm sm:text-base">🚪</span><span className="hidden sm:inline ml-1">LEAVE TEAM</span><span className="sm:hidden ml-1">LEAVE</span>
           </button>
         </div>
 
-        <div className="p-4 md:p-6">
+        <div className="p-3 sm:p-4 md:p-6">
           {/* General Information */}
           {activeSection === 'general' && (
             <motion.div

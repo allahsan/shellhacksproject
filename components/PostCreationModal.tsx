@@ -174,44 +174,44 @@ export default function PostCreationModal({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-x-4 top-[50%] translate-y-[-50%] md:inset-x-auto md:left-[50%] md:translate-x-[-50%] max-w-2xl w-full bg-white border-2 border-black shadow-2xl z-50"
+            className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[92%] sm:w-[90%] md:w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] z-50"
           >
             {/* Header */}
-            <div className="bg-amber-500 text-black p-6 border-b-2 border-black">
+            <div className="bg-amber-500 text-black p-4 sm:p-6 border-b-2 border-black">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-black">Share with the crowd!</h2>
-                  <p className="text-sm mt-1 font-medium">Don't hold back, {userName.split(' ')[0]}!</p>
+                  <h2 className="text-lg sm:text-xl md:text-2xl font-black">Share with the crowd!</h2>
+                  <p className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium">Don't hold back, {userName.split(' ')[0]}!</p>
                 </div>
                 <button
                   onClick={onClose}
-                  className="text-black hover:bg-amber-600 p-2 rounded transition-colors"
+                  className="text-black hover:bg-black hover:text-white p-1.5 sm:p-2 transition-colors"
                 >
-                  <span className="text-2xl">✕</span>
+                  <span className="text-xl sm:text-2xl font-bold">✕</span>
                 </button>
               </div>
             </div>
 
             {/* Body */}
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {/* Post Type Selection */}
-              <div className="mb-4">
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+              <div className="mb-3 sm:mb-4">
+                <label className="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 sm:mb-2">
                   What kind of update is this?
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
                   {postTypes.map((type) => (
                     <button
                       key={type.value}
                       onClick={() => setPostType(type.value as any)}
-                      className={`p-3 border-2 rounded-lg font-bold transition-all ${
+                      className={`p-2 sm:p-3 border-2 rounded-lg font-bold transition-all ${
                         postType === type.value
                           ? 'border-amber-500 bg-amber-50 text-black'
                           : 'border-gray-300 hover:border-gray-400'
                       }`}
                     >
-                      <div className="text-lg">{type.label}</div>
-                      <div className="text-xs font-normal mt-1 text-gray-600">
+                      <div className="text-sm sm:text-lg">{type.label}</div>
+                      <div className="text-[10px] sm:text-xs font-normal mt-0.5 sm:mt-1 text-gray-600">
                         {type.description}
                       </div>
                     </button>
@@ -220,8 +220,8 @@ export default function PostCreationModal({
               </div>
 
               {/* Content Input */}
-              <div className="mb-4">
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+              <div className="mb-3 sm:mb-4">
+                <label className="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 sm:mb-2">
                   Spill the tea! ☕
                 </label>
                 <textarea
@@ -238,7 +238,7 @@ export default function PostCreationModal({
                       ? "ATTENTION EVERYONE: Free pizza at booth 42! 🍕"
                       : "Just deployed our MVP and only broke production twice! 🚀"
                   }
-                  className="w-full px-4 py-3 border-2 border-black rounded-lg focus:outline-none focus:border-amber-500 transition-colors resize-none h-32 font-medium"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-black rounded-lg focus:outline-none focus:border-amber-500 transition-colors resize-none h-28 sm:h-32 text-sm sm:text-base font-medium"
                   maxLength={1000}
                   onPaste={(e) => {
                     // Security: Sanitize pasted content
@@ -251,12 +251,12 @@ export default function PostCreationModal({
                     })
                   }}
                 />
-                <div className="flex justify-between mt-2">
-                  <p className="text-xs text-gray-500">
-                    {content.length > 800 ? '⚠️' : '✍️'} {content.length}/1000 characters
+                <div className="flex justify-between mt-1 sm:mt-2">
+                  <p className="text-[10px] sm:text-xs text-gray-500">
+                    {content.length > 800 ? '⚠️' : '✍️'} {content.length}/1000
                   </p>
                   {content.length > 0 && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-[10px] sm:text-xs text-gray-500">
                       {content.length < 50 ? "That's it? Come on, give us more! 😅" :
                        content.length < 100 ? "Getting there... 👍" :
                        content.length < 500 ? "Nice! Keep going! 🔥" :
@@ -268,24 +268,25 @@ export default function PostCreationModal({
 
               {/* Error Message */}
               {error && (
-                <div className="mb-4 p-3 bg-red-50 border-2 border-red-500 rounded-lg text-red-700 font-medium">
+                <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-red-50 border-2 border-red-500 rounded-lg text-red-700 text-xs sm:text-sm font-medium">
                   {error}
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3">
                 <button
                   onClick={onClose}
                   disabled={loading}
-                  className="flex-1 py-3 px-6 bg-gray-200 hover:bg-gray-300 text-black font-black border-2 border-black rounded-lg transition-colors disabled:opacity-50"
+                  className="flex-1 py-2 sm:py-3 px-3 sm:px-6 bg-gray-200 hover:bg-gray-300 text-black font-black border-2 border-black rounded-lg transition-colors disabled:opacity-50 text-xs sm:text-base"
                 >
-                  Nah, changed my mind
+                  <span className="hidden sm:inline">Nah, changed my mind</span>
+                  <span className="sm:hidden">Cancel</span>
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={loading || !content.trim()}
-                  className="flex-1 py-3 px-6 bg-amber-500 hover:bg-amber-600 text-black font-black border-2 border-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2 sm:py-3 px-3 sm:px-6 bg-amber-500 hover:bg-amber-600 text-black font-black border-2 border-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-base"
                 >
                   {loading ? 'Posting...' : 'Ship it! 🚀'}
                 </button>

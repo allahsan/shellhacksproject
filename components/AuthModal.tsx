@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -12,13 +12,23 @@ interface AuthModalProps {
   mode: 'login' | 'signup'
 }
 
-export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, mode: initialMode }: AuthModalProps) {
   const router = useRouter()
+  const [mode, setMode] = useState<'login' | 'signup'>(initialMode)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState<'credentials' | 'profile'>('credentials')
   const [lastAttempt, setLastAttempt] = useState(0)
   const [attemptCount, setAttemptCount] = useState(0)
+
+  // Reset mode when modal opens with new props
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode)
+      setStep('credentials')
+      setError('')
+    }
+  }, [isOpen, initialMode])
 
   // Login data
   const [loginData, setLoginData] = useState({
@@ -272,33 +282,33 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-x-4 top-[50%] translate-y-[-50%] md:inset-x-auto md:left-[50%] md:translate-x-[-50%] max-w-md w-full bg-white rounded-xl shadow-2xl z-50"
+            className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[90%] max-w-md bg-white border-2 border-black shadow-hard z-50 max-h-[90vh] overflow-y-auto"
           >
             {/* Header */}
-            <div className="relative bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-t-xl">
+            <div className="relative bg-amber-400 border-b-2 border-black p-4 sm:p-6">
               <button
                 onClick={onClose}
-                className="absolute top-4 right-4 text-white/80 hover:text-white text-2xl"
+                className="absolute top-3 right-3 text-black hover:text-gray-700 text-xl font-bold"
               >
                 ✕
               </button>
 
-              <h2 className="text-2xl font-bold">
-                {mode === 'login' ? 'Welcome Back!' : 'Join TeamDock'}
+              <h2 className="text-xl sm:text-2xl font-black text-black">
+                {mode === 'login' ? '🎯 WELCOME BACK!' : '🚀 JOIN THE HACKATHON'}
               </h2>
-              <p className="text-white/90 text-sm mt-1">
+              <p className="text-black/80 text-sm mt-1 font-bold">
                 {mode === 'login'
                   ? 'Login to manage your team'
                   : step === 'credentials'
                     ? 'Create your account'
-                    : 'Complete your profile'}
+                    : 'Select your skills'}
               </p>
             </div>
 
             {/* Body */}
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {error && (
-                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                <div className="mb-4 p-3 bg-red-100 border-2 border-red-500 text-red-700 text-sm font-bold">
                   {error}
                 </div>
               )}
@@ -333,7 +343,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                         const pasted = e.clipboardData.getData('text/plain')
                         setLoginData({ ...loginData, identifier: sanitizeInput(pasted.slice(0, 100)) })
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                      className="w-full px-3 py-2 border-2 border-black focus:outline-none focus:border-amber-500"
                       placeholder="Enter your name or email"
                       maxLength={100}
                     />
@@ -350,7 +360,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                         const value = e.target.value.replace(/\D/g, '').slice(0, 12)
                         setLoginData({ ...loginData, secretCode: value })
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                      className="w-full px-3 py-2 border-2 border-black focus:outline-none focus:border-amber-500"
                       placeholder="Enter your 6-12 digit code"
                       maxLength={12}
                     />
@@ -359,7 +369,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                   <button
                     onClick={handleLogin}
                     disabled={loading}
-                    className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                    className="w-full py-3 bg-black text-white font-black hover:bg-amber-500 hover:text-black transition-all disabled:opacity-50 border-2 border-black"
                   >
                     {loading ? 'Logging in...' : 'Login'}
                   </button>
@@ -370,13 +380,10 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                       onClick={() => {
                         setError('')
                         setLoginData({ identifier: '', secretCode: '' })
-                        onClose()
-                        setTimeout(() => {
-                          const signupBtn = document.querySelector('[data-signup-btn]')
-                          if (signupBtn) (signupBtn as HTMLElement).click()
-                        }, 100)
+                        setMode('signup')
+                        setStep('credentials')
                       }}
-                      className="text-purple-600 hover:underline"
+                      className="text-black font-bold underline hover:text-amber-500"
                     >
                       Sign up
                     </button>
@@ -413,7 +420,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                             const pasted = e.clipboardData.getData('text/plain')
                             setSignupData({ ...signupData, name: sanitizeInput(pasted.slice(0, 100)) })
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                          className="w-full px-3 py-2 border-2 border-black focus:outline-none focus:border-amber-500"
                           placeholder="Your full name"
                           maxLength={100}
                         />
@@ -432,7 +439,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                             const pasted = e.clipboardData.getData('text/plain')
                             setSignupData({ ...signupData, email: sanitizeInput(pasted.slice(0, 100)) })
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                          className="w-full px-3 py-2 border-2 border-black focus:outline-none focus:border-amber-500"
                           placeholder="your@email.com"
                           maxLength={100}
                           required
@@ -450,7 +457,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                             const formatted = formatPhone(e.target.value)
                             setSignupData({ ...signupData, phone: formatted })
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                          className="w-full px-3 py-2 border-2 border-black focus:outline-none focus:border-amber-500"
                           placeholder="305-555-0189"
                           maxLength={12}
                           required
@@ -468,7 +475,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                             const value = e.target.value.replace(/\D/g, '').slice(0, 12)
                             setSignupData({ ...signupData, secretCode: value })
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                          className="w-full px-3 py-2 border-2 border-black focus:outline-none focus:border-amber-500"
                           placeholder="Enter 6-12 digit code"
                           maxLength={12}
                         />
@@ -485,7 +492,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                             const value = e.target.value.replace(/\D/g, '').slice(0, 12)
                             setSignupData({ ...signupData, confirmCode: value })
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                          className="w-full px-3 py-2 border-2 border-black focus:outline-none focus:border-amber-500"
                           placeholder="Re-enter your code"
                           maxLength={12}
                         />
@@ -493,7 +500,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
 
                       <button
                         onClick={handleSignup}
-                        className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                        className="w-full py-3 bg-amber-500 text-black font-black border-2 border-black hover:bg-black hover:text-white transition-all"
                       >
                         Next: Select Skills
                       </button>
@@ -504,15 +511,15 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                         <label className="block text-sm font-medium text-gray-700 mb-3">
                           Select Your Skills *
                         </label>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {availableSkills.map((skill) => (
                             <button
                               key={skill}
                               onClick={() => toggleSkill(skill)}
-                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                              className={`px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-black text-xs sm:text-sm font-bold transition-all ${
                                 signupData.skills.includes(skill)
-                                  ? 'bg-purple-600 text-white'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  ? 'bg-black text-white'
+                                  : 'bg-white text-black hover:bg-amber-100'
                               }`}
                             >
                               {skill}
@@ -524,14 +531,14 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                       <div className="flex gap-3">
                         <button
                           onClick={() => setStep('credentials')}
-                          className="flex-1 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors"
+                          className="flex-1 py-3 bg-white text-black font-black border-2 border-black hover:bg-gray-100 transition-colors"
                         >
                           Back
                         </button>
                         <button
                           onClick={handleSignup}
                           disabled={loading}
-                          className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                          className="flex-1 py-3 bg-amber-500 text-black font-black border-2 border-black hover:bg-black hover:text-white transition-all disabled:opacity-50"
                         >
                           {loading ? 'Creating...' : 'Create Account'}
                         </button>
@@ -553,13 +560,10 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                             confirmCode: '',
                             skills: []
                           })
-                          onClose()
-                          setTimeout(() => {
-                            const loginBtn = document.querySelector('[data-login-btn]')
-                            if (loginBtn) (loginBtn as HTMLElement).click()
-                          }, 100)
+                          setMode('login')
+                          setStep('credentials')
                         }}
-                        className="text-purple-600 hover:underline"
+                        className="text-black font-bold underline hover:text-amber-500"
                       >
                         Login
                       </button>

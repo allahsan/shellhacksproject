@@ -48,6 +48,7 @@ interface TeamFeedProps {
 export default function TeamFeed({ isUserLoggedIn = false, currentUser }: TeamFeedProps) {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  const currentUserId = currentUser?.id
   const [selectedTeam, setSelectedTeam] = useState<Post['team'] | null>(null)
   const [showTeamModal, setShowTeamModal] = useState(false)
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
@@ -99,20 +100,27 @@ export default function TeamFeed({ isUserLoggedIn = false, currentUser }: TeamFe
 
       if (error) throw error
 
-      // Check likes for current session
+      // Check likes for current user (only if logged in)
       if (data) {
         const postsWithLikes = await Promise.all(
           data.map(async (post) => {
-            const { data: likeData } = await supabase
-              .from('post_likes')
-              .select('id')
-              .eq('post_id', post.id)
-              .eq('session_id', sessionId)
-              .single()
+            let isLiked = false
+
+            // Only check likes if user is logged in with a profile
+            if (currentUserId) {
+              const { data: likeData } = await supabase
+                .from('post_likes')
+                .select('id')
+                .eq('post_id', post.id)
+                .eq('profile_id', currentUserId)
+                .single()
+
+              isLiked = !!likeData
+            }
 
             return {
               ...post,
-              isLiked: !!likeData
+              isLiked
             }
           })
         )
@@ -150,30 +158,56 @@ export default function TeamFeed({ isUserLoggedIn = false, currentUser }: TeamFe
   }
 
   const handleLike = async (postId: string) => {
-    if (!isLoggedIn) {
+    if (!isLoggedIn || !currentUserId) {
       alert('Please login to like posts!')
       return
     }
 
     try {
-      const { data, error } = await (supabase.rpc as any)('toggle_post_like', {
-        p_post_id: postId,
-        p_session_id: sessionId
-      })
+      // First check if already liked
+      const { data: existingLike } = await supabase
+        .from('post_likes')
+        .select('id')
+        .eq('post_id', postId)
+        .eq('profile_id', currentUserId)
+        .single()
 
-      if (error) throw error
+      let success = false
 
-      // Update local state
-      setPosts(posts.map(post => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            isLiked: data.liked,
-            likes_count: data.likes_count
+      if (existingLike) {
+        // Unlike
+        const { error } = await supabase
+          .from('post_likes')
+          .delete()
+          .eq('post_id', postId)
+          .eq('profile_id', currentUserId)
+
+        success = !error
+      } else {
+        // Like
+        const { error } = await supabase
+          .from('post_likes')
+          .insert({
+            post_id: postId,
+            profile_id: currentUserId
+          })
+
+        success = !error
+      }
+
+      if (success) {
+        // Update local state
+        setPosts(posts.map(post => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              isLiked: !post.isLiked,
+              likes_count: post.isLiked ? post.likes_count - 1 : post.likes_count + 1
+            }
           }
-        }
-        return post
-      }))
+          return post
+        }))
+      }
     } catch (error) {
       console.error('Error toggling like:', error)
     }
@@ -328,17 +362,23 @@ export default function TeamFeed({ isUserLoggedIn = false, currentUser }: TeamFe
       if (error) throw error
 
       if (data) {
-        // Check if liked by current session
-        const { data: likeData } = await supabase
-          .from('post_likes')
-          .select('id')
-          .eq('post_id', postId)
-          .eq('session_id', sessionId)
-          .single()
+        // Check if liked by current user (only if logged in)
+        let isLiked = false
+
+        if (currentUserId) {
+          const { data: likeData } = await supabase
+            .from('post_likes')
+            .select('id')
+            .eq('post_id', postId)
+            .eq('profile_id', currentUserId)
+            .single()
+
+          isLiked = !!likeData
+        }
 
         const updatedPost = {
           ...data,
-          isLiked: !!likeData
+          isLiked
         }
 
         // Update the post in the state
@@ -480,10 +520,10 @@ export default function TeamFeed({ isUserLoggedIn = false, currentUser }: TeamFe
               key={post.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white border-2 border-black shadow-hard hover:shadow-xl transition-shadow"
+              className="bg-white border-2 border-black shadow-hard hover:shadow-xl transition-shadow overflow-hidden"
             >
               {/* Post Header */}
-              <div className="p-4 pb-0">
+              <div className="p-3 sm:p-4 pb-0">
                 <div className="flex items-start justify-between">
                   <div
                     className="flex items-start space-x-2 cursor-pointer flex-1"
@@ -497,11 +537,11 @@ export default function TeamFeed({ isUserLoggedIn = false, currentUser }: TeamFe
                     <div className={`w-9 h-9 ${post.team ? 'bg-amber-500' : 'bg-purple-500'} rounded flex items-center justify-center text-black font-black text-sm`}>
                       {post.team ? post.team.name.charAt(0) : '🚀'}
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-black text-base text-gray-900 hover:text-amber-600 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-black text-sm sm:text-base text-gray-900 hover:text-amber-600 transition-colors truncate">
                         {post.team ? post.team.name : 'Solo Hacker'}
                       </h3>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-gray-500">
                         <span className="font-medium">{post.author.name}</span>
                         <span>•</span>
                         <span>{formatTime(post.created_at)}</span>
@@ -514,8 +554,8 @@ export default function TeamFeed({ isUserLoggedIn = false, currentUser }: TeamFe
                 </div>
 
                 {/* Post Content */}
-                <div className="mt-3">
-                  <p className="text-[15px] text-gray-800 whitespace-pre-wrap leading-relaxed">
+                <div className="mt-3 overflow-hidden">
+                  <p className="text-[15px] text-gray-800 whitespace-pre-wrap leading-relaxed break-words">
                     {post.content}
                   </p>
                 </div>
@@ -541,7 +581,7 @@ export default function TeamFeed({ isUserLoggedIn = false, currentUser }: TeamFe
               </div>
 
               {/* Engagement Stats */}
-              <div className="px-4 py-1.5 flex items-center justify-between text-xs text-gray-500">
+              <div className="px-3 sm:px-4 py-1.5 flex items-center justify-between text-xs text-gray-500">
                 <div className="flex items-center gap-3">
                   {post.likes_count > 0 && (
                     <span>👍 {post.likes_count}</span>
@@ -553,7 +593,7 @@ export default function TeamFeed({ isUserLoggedIn = false, currentUser }: TeamFe
               </div>
 
               {/* Action Buttons */}
-              <div className="px-4 py-1 border-t-2 border-black bg-gray-50">
+              <div className="px-3 sm:px-4 py-1 border-t-2 border-black bg-gray-50">
                 <div className="flex items-center justify-around">
                   {isLoggedIn ? (
                     <button
@@ -599,7 +639,7 @@ export default function TeamFeed({ isUserLoggedIn = false, currentUser }: TeamFe
                     exit={{ height: 0, opacity: 0 }}
                     className="border-t border-gray-100 overflow-hidden"
                   >
-                    <div className="p-4 space-y-3">
+                    <div className="p-3 sm:p-4 space-y-3">
                       {/* Comment Input - only show if logged in */}
                       {isLoggedIn && (
                         <div className="flex gap-2 items-center">

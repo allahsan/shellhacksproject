@@ -197,25 +197,25 @@ export default function TeamInfoModal({ isOpen, onClose, team, currentUserId, us
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-x-4 top-[55%] translate-y-[-50%] md:inset-x-auto md:left-[55%] md:translate-x-[-50%] max-w-3xl w-full max-h-[80vh] overflow-hidden bg-white/95 backdrop-blur-md border-2 border-black shadow-[6px_6px_0px_rgba(0,0,0,1)] z-50"
+            className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[92%] sm:w-[90%] md:w-full max-w-3xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden bg-white border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] z-50"
           >
             {/* Header */}
-            <div className="relative bg-amber-500 text-black p-4 border-b-2 border-black">
+            <div className="relative bg-amber-500 text-black p-3 sm:p-4 border-b-2 border-black">
               <button
                 onClick={onClose}
                 className="absolute top-2 right-2 text-black hover:bg-amber-600 p-1 rounded transition-colors"
               >
-                <span className="text-lg font-black">✕</span>
+                <span className="text-base sm:text-lg font-black">✕</span>
               </button>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-black text-amber-500 flex items-center justify-center text-xl font-black">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-black text-amber-500 flex items-center justify-center text-lg sm:text-xl font-black">
                     {team.name.charAt(0)}
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black">{team.name}</h2>
-                    <span className="text-sm font-bold">{members.length} HACKERS</span>
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-black">{team.name}</h2>
+                    <span className="text-xs sm:text-sm font-bold">{members.length} HACKERS</span>
                   </div>
                 </div>
                 <div className="mr-8">
@@ -228,24 +228,24 @@ export default function TeamInfoModal({ isOpen, onClose, team, currentUserId, us
               </div>
             </div>
 
-            <div className="p-4 space-y-3 bg-gradient-to-br from-amber-50/90 to-orange-50/90 max-h-[calc(80vh-80px)] overflow-y-auto modal-scroll">
+            <div className="p-3 sm:p-4 space-y-2 sm:space-y-3 bg-gradient-to-br from-amber-50/90 to-orange-50/90 max-h-[calc(90vh-80px)] sm:max-h-[calc(85vh-100px)] overflow-y-auto">
               {/* Description */}
-              <div className="bg-white p-3 border border-gray-300">
-                <h3 className="font-bold text-sm text-black mb-1">🚀 PROJECT</h3>
-                <p className="text-sm text-gray-800 leading-snug">
+              <div className="bg-white p-2.5 sm:p-3 border border-gray-300">
+                <h3 className="font-bold text-xs sm:text-sm text-black mb-1">🚀 PROJECT</h3>
+                <p className="text-xs sm:text-sm text-gray-800 leading-relaxed break-words">
                   {team.description}
                 </p>
               </div>
 
               {/* Tech Stack */}
               {team.tech_stack.length > 0 && (
-                <div className="bg-white p-3 border border-gray-300">
-                  <h3 className="font-bold text-sm text-black mb-2">⚡ TECH</h3>
-                  <div className="flex flex-wrap gap-2">
+                <div className="bg-white p-2.5 sm:p-3 border border-gray-300">
+                  <h3 className="font-bold text-xs sm:text-sm text-black mb-1.5 sm:mb-2">⚡ TECH</h3>
+                  <div className="flex flex-wrap gap-1 sm:gap-2">
                     {team.tech_stack.map((tech) => (
                       <span
                         key={tech}
-                        className="px-2 py-1 bg-amber-100 text-amber-800 border border-amber-600 text-xs font-medium"
+                        className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-amber-100 text-amber-800 border border-amber-600 text-[10px] sm:text-xs font-medium"
                       >
                         {tech}
                       </span>
@@ -255,23 +255,23 @@ export default function TeamInfoModal({ isOpen, onClose, team, currentUserId, us
               )}
 
               {/* Team Members */}
-              <div className="bg-white p-3 border border-gray-300">
-                <h3 className="font-bold text-sm text-black mb-2">👥 SQUAD</h3>
+              <div className="bg-white p-2.5 sm:p-3 border border-gray-300">
+                <h3 className="font-bold text-xs sm:text-sm text-black mb-1.5 sm:mb-2">👥 SQUAD</h3>
                 {loadingMembers ? (
-                  <div className="text-sm text-gray-600">Loading...</div>
+                  <div className="text-xs sm:text-sm text-gray-600">Loading...</div>
                 ) : members.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
                     {members.map((member) => (
                       <div
                         key={member.id}
-                        className="bg-gray-50 p-2 border border-gray-200"
+                        className="bg-gray-50 p-1.5 sm:p-2 border border-gray-200"
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-black text-sm truncate">
+                            <span className="font-bold text-black text-xs sm:text-sm truncate">
                               {member.profile.name}
                             </span>
-                            <span className="text-xs text-amber-700">
+                            <span className="text-[10px] sm:text-xs text-amber-700">
                               • {member.role}
                             </span>
                           </div>
@@ -292,7 +292,7 @@ export default function TeamInfoModal({ isOpen, onClose, team, currentUserId, us
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-600">No members yet</p>
+                  <p className="text-xs sm:text-sm text-gray-600">No members yet</p>
                 )}
               </div>
 
@@ -300,7 +300,7 @@ export default function TeamInfoModal({ isOpen, onClose, team, currentUserId, us
               {isRecruiting && openRoles.length > 0 && (
                 <div className="bg-green-50 p-3 border border-gray-300">
                   <h3 className="font-bold text-sm text-black mb-2">🎯 OPEN ROLES</h3>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
                     {openRoles.map((role) => (
                       <div
                         key={role}
@@ -320,8 +320,8 @@ export default function TeamInfoModal({ isOpen, onClose, team, currentUserId, us
 
               {/* Recent Activity */}
               {recentPosts.length > 0 && (
-                <div className="bg-white p-3 border border-gray-300">
-                  <h3 className="font-bold text-sm text-black mb-2">📢 UPDATES</h3>
+                <div className="bg-white p-2.5 sm:p-3 border border-gray-300">
+                  <h3 className="font-bold text-xs sm:text-sm text-black mb-1.5 sm:mb-2">📢 UPDATES</h3>
                   <div className="space-y-2">
                     {recentPosts.slice(0, 2).map((post) => (
                       <div key={post.id} className="bg-gray-50 border-l-2 border-amber-500 pl-2 py-1">

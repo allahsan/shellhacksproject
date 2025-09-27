@@ -10,6 +10,7 @@ import JoinTeamView from '@/components/JoinTeamView'
 import JoinRequestsView from '@/components/JoinRequestsView'
 import ManageTeam from '@/components/ManageTeam'
 import CreateTeamView from '@/components/CreateTeamView'
+import AuthModal from '@/components/AuthModal'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Database } from '@/types/supabase'
@@ -40,7 +41,9 @@ function HomePageContent() {
   const [showPostModal, setShowPostModal] = useState(false)
   const [hackathonProgress, setHackathonProgress] = useState<{ timeRemaining: string; percentage: number }>({ timeRemaining: '', percentage: 0 })
   const [flipText, setFlipText] = useState(true)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  // Bottom navigation for mobile - no hamburger menu needed
+  const [authModal, setAuthModal] = useState(false)
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login')
 
   // Login data
   const [loginData, setLoginData] = useState({
@@ -568,30 +571,118 @@ function HomePageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex overflow-hidden">
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-black text-white rounded-md border-2 border-amber-500"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          {mobileMenuOpen ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      {/* Bottom Navigation Bar for Mobile */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-black z-50 shadow-[0_-4px_6px_rgba(0,0,0,0.1)]">
+        <div className="flex items-center justify-around py-2">
+          {/* Home */}
+          <button
+            onClick={() => {
+              router.push('/')
+              setCurrentView('home')
+            }}
+            className={`flex flex-col items-center px-3 py-1 transition-colors ${
+              currentView === 'home'
+                ? 'text-amber-500'
+                : 'text-gray-600'
+            }`}
+          >
+            <span className="text-xl mb-0.5">📜</span>
+            <span className="text-xs font-bold">Scroll</span>
+          </button>
+
+          {/* Teams */}
+          <button
+            onClick={() => {
+              router.push('/?view=browse-teams')
+              setCurrentView('browse-teams')
+            }}
+            className={`flex flex-col items-center px-3 py-1 transition-colors ${
+              currentView === 'browse-teams'
+                ? 'text-amber-500'
+                : 'text-gray-600'
+            }`}
+          >
+            <span className="text-xl mb-0.5">👥</span>
+            <span className="text-xs font-bold">Teams</span>
+          </button>
+
+          {/* Create/Manage */}
+          {currentUser && (
+            <button
+              onClick={() => {
+                if (userTeam) {
+                  router.push('/?view=manage-team')
+                  setCurrentView('manage-team')
+                } else {
+                  router.push('/?view=create-team')
+                  setCurrentView('create-team')
+                }
+              }}
+              className={`flex flex-col items-center px-3 py-1 transition-colors relative ${
+                currentView === 'create-team' || currentView === 'manage-team'
+                  ? 'text-amber-500'
+                  : 'text-gray-600'
+              }`}
+            >
+              <span className="text-xl mb-0.5">{userTeam ? '⚙️' : '➕'}</span>
+              <span className="text-xs font-bold">{userTeam ? 'Manage' : 'Create'}</span>
+              {isTeamLeader && pendingRequestsCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                  {pendingRequestsCount}
+                </span>
+              )}
+            </button>
           )}
-        </svg>
-      </button>
 
-      {/* Overlay for mobile */}
-      {mobileMenuOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
+          {/* Stats */}
+          <button
+            onClick={() => {
+              router.push('/?view=statistics')
+              setCurrentView('statistics')
+            }}
+            className={`flex flex-col items-center px-3 py-1 transition-colors ${
+              currentView === 'statistics'
+                ? 'text-amber-500'
+                : 'text-gray-600'
+            }`}
+          >
+            <span className="text-xl mb-0.5">📊</span>
+            <span className="text-xs font-bold">Stats</span>
+          </button>
 
-      {/* Left Sidebar - Responsive */}
-      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 w-64 bg-black text-white h-screen fixed top-0 left-0 flex flex-col border-r-4 border-amber-500 z-40 transition-transform duration-300`}>
+          {/* Profile */}
+          {currentUser ? (
+            <button
+              onClick={() => {
+                router.push('/?view=profile')
+                setCurrentView('profile')
+              }}
+              className={`flex flex-col items-center px-3 py-1 transition-colors ${
+                currentView === 'profile'
+                  ? 'text-amber-500'
+                  : 'text-gray-600'
+              }`}
+            >
+              <span className="text-xl mb-0.5">👤</span>
+              <span className="text-xs font-bold">Profile</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setAuthModal(true)
+                setAuthModalMode('login')
+              }}
+              className="flex flex-col items-center px-3 py-1 text-gray-600 transition-colors"
+            >
+              <span className="text-xl mb-0.5">🔑</span>
+              <span className="text-xs font-bold">Login</span>
+            </button>
+          )}
+        </div>
+      </nav>
+
+      {/* Left Sidebar - Desktop Only */}
+      <aside className="hidden lg:flex w-64 bg-black text-white h-screen fixed top-0 left-0 flex-col border-r-4 border-amber-500 z-40">
         {/* Logo */}
         <div className="p-4 border-b-2 border-amber-500/30">
           <h1 className="text-2xl lg:text-3xl font-black">
@@ -606,7 +697,6 @@ function HomePageContent() {
             onClick={() => {
               router.push('/')
               setCurrentView('home')
-              setMobileMenuOpen(false)
             }}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
               currentView === 'home'
@@ -623,7 +713,6 @@ function HomePageContent() {
             onClick={() => {
               router.push('/?view=statistics')
               setCurrentView('statistics')
-              setMobileMenuOpen(false)
             }}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
               currentView === 'statistics'
@@ -641,8 +730,7 @@ function HomePageContent() {
               onClick={() => {
                 router.push('/?view=profile')
                 setCurrentView('profile')
-                setMobileMenuOpen(false)
-              }}
+                }}
               className="w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium hover:bg-amber-500/20 text-gray-300 hover:text-amber-400"
             >
               <span>👤</span>
@@ -669,8 +757,7 @@ function HomePageContent() {
                   onClick={() => {
                     router.push('/?view=browse-teams')
                     setCurrentView('browse-teams')
-                    setMobileMenuOpen(false)
-                  }}
+                        }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
                     currentView === 'browse-teams'
                       ? 'bg-amber-500/20 text-amber-400'
@@ -687,8 +774,7 @@ function HomePageContent() {
                     onClick={() => {
                       router.push('/?view=manage-team')
                       setCurrentView('manage-team')
-                      setMobileMenuOpen(false)
-                    }}
+                            }}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
                       currentView === 'manage-team'
                         ? 'bg-amber-500/20 text-amber-400'
@@ -703,8 +789,7 @@ function HomePageContent() {
                     onClick={() => {
                       router.push('/?view=create-team')
                       setCurrentView('create-team')
-                      setMobileMenuOpen(false)
-                    }}
+                            }}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
                       currentView === 'create-team'
                         ? 'bg-amber-500/20 text-amber-400'
@@ -722,8 +807,7 @@ function HomePageContent() {
                     onClick={() => {
                       router.push('/?view=join-requests')
                       setCurrentView('join-requests')
-                      setMobileMenuOpen(false)
-                    }}
+                            }}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium relative ${
                       currentView === 'join-requests'
                         ? 'bg-amber-500/20 text-amber-400'
@@ -747,8 +831,7 @@ function HomePageContent() {
                 onClick={() => {
                   router.push('/?view=browse-teams')
                   setCurrentView('browse-teams')
-                  setMobileMenuOpen(false)
-                }}
+                    }}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
                   currentView === 'browse-teams'
                     ? 'bg-amber-500/20 text-amber-400'
@@ -1016,13 +1099,19 @@ function HomePageContent() {
         </div>
       </aside>
 
-      {/* Main Content - Responsive margin */}
-      <div className="flex-1 flex flex-col lg:ml-64 h-screen">
+      {/* Main Content - Responsive margin and padding for bottom nav */}
+      <div className="flex-1 flex flex-col lg:ml-64 h-screen pb-16 lg:pb-0">
         {/* Header Bar - Dynamic based on current view */}
         <header className="bg-white border-b-2 border-black px-4 lg:px-6 py-4 flex-shrink-0 relative z-20 shadow-[0_4px_6px_rgba(0,0,0,0.1)]">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 ml-12 lg:ml-0">
-              <h2 className="text-xl font-black text-black">
+            {/* TD Logo on far left */}
+            <div className="flex items-center">
+              <span className="text-xl lg:text-2xl font-black text-amber-500 border-2 border-amber-500 px-2.5 py-1 bg-black shadow-[2px_2px_0px_rgba(245,158,11,1)]">TD</span>
+            </div>
+
+            {/* Centered page name */}
+            <div className="absolute left-1/2 transform -translate-x-1/2">
+              <h2 className="text-lg lg:text-xl font-black text-black text-center">
                 {currentView === 'home' && 'THE SCROLL'}
                 {currentView === 'profile' && 'MY PROFILE'}
                 {currentView === 'statistics' && 'STATISTICS'}
@@ -1031,17 +1120,21 @@ function HomePageContent() {
                 {currentView === 'join-requests' && 'JOIN REQUESTS'}
                 {currentView === 'manage-team' && 'MANAGE TEAM'}
               </h2>
-              <div className="flex items-center text-sm text-amber-600">
-                <span className="animate-pulse mr-2 h-2 w-2 bg-amber-500 rounded-full"></span>
-                <span className="font-bold">LIVE</span>
-              </div>
             </div>
 
-            {/* Center message for The Scroll and Statistics */}
-            {currentView === 'home' && (
-              <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
-                <div className="relative h-6 overflow-hidden">
-                  <p className="text-lg font-bold text-gray-800">
+            {/* ShellHacks on the right with 2025 below */}
+            <div className="flex flex-col items-end">
+              <span className="text-sm lg:text-base font-bold text-black">ShellHacks</span>
+              <span className="text-xs lg:text-sm font-bold text-amber-500">2025</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Center message below header for The Scroll and Statistics */}
+        {currentView === 'home' && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
+            <div className="text-center">
+              <p className="text-sm lg:text-base font-bold text-gray-800">
                     {currentUser ? (
                       <>🚀 Yo {currentUser.name.split(' ')[0]}! Here's the tea ☕ from the hackathon streets</>
                     ) : (
@@ -1062,47 +1155,30 @@ function HomePageContent() {
                         </motion.span>
                       </span>
                     )}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {currentView === 'statistics' && (
-              <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
-                <p className="text-sm font-bold text-red-600">
-                  ⚠️ The data in TeamDock is based on user activity and may not be completely reliable
-                </p>
-              </div>
-            )}
-
-            {currentView === 'browse-teams' && !currentUser && (
-              <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
-                <p className="text-sm font-bold text-amber-600">
-                  🕵️ Hold up there, mystery hacker! Login to crash the party and find your coding crew! 🎉
-                </p>
-              </div>
-            )}
-
-            {/* ShellHack Branding - Top Right */}
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-black text-black">
-                    SHELLHACKS
-                  </span>
-                  <span className="text-amber-500 font-black">2025</span>
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  <span className="text-xs text-gray-600 font-medium">FIU's Flagship Hackathon</span>
-                </div>
-              </div>
+              </p>
             </div>
           </div>
-        </header>
+        )}
+
+        {currentView === 'statistics' && (
+          <div className="bg-red-50 border-b border-red-200 px-4 py-2">
+            <p className="text-xs lg:text-sm font-bold text-red-600 text-center">
+              ⚠️ The data in TeamDock is based on user activity and may not be completely reliable
+            </p>
+          </div>
+        )}
+
+        {currentView === 'browse-teams' && !currentUser && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
+            <p className="text-xs lg:text-sm font-bold text-amber-600 text-center">
+              🕵️ Hold up there, mystery hacker! Login to crash the party and find your coding crew! 🎉
+            </p>
+          </div>
+        )}
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10">
-          <div className="max-w-4xl mx-auto px-6 py-6">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
             <AnimatePresence mode="wait">
               {currentView === 'home' && (
                 <motion.div
@@ -1548,14 +1624,15 @@ function HomePageContent() {
       {currentView === 'home' && currentUser && (
         <button
           onClick={() => setShowPostModal(true)}
-          className="fixed bottom-4 right-4 md:bottom-8 md:right-8 bg-amber-500 hover:bg-amber-600 text-black px-4 py-3 md:px-6 md:py-4 rounded-full font-black shadow-2xl hover:scale-110 transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.6)] border-2 border-black z-50 group"
+          className="fixed bottom-20 right-2 lg:bottom-8 lg:right-8 bg-amber-500 hover:bg-amber-600 text-black px-3 py-2 lg:px-6 lg:py-4 rounded-full font-black shadow-2xl hover:scale-110 transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.6)] border-2 border-black z-40 group"
         >
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">📣</span>
-            <div className="flex flex-col items-start">
-              <span>Don't be an introvert!</span>
+          <div className="flex items-center gap-1 lg:gap-2">
+            <span className="text-lg lg:text-2xl">📣</span>
+            <div className="hidden sm:flex flex-col items-start">
+              <span className="text-sm lg:text-base">Don't be an introvert!</span>
               <span className="text-xs opacity-90">Share your progress →</span>
             </div>
+            <span className="sm:hidden text-xs">Post</span>
           </div>
 
           {/* Pulsing ring animation */}
@@ -1579,6 +1656,14 @@ function HomePageContent() {
         />
       )}
 
+      {/* Auth Modal */}
+      {authModal && (
+        <AuthModal
+          isOpen={authModal}
+          onClose={() => setAuthModal(false)}
+          mode={authModalMode}
+        />
+      )}
 
     </div>
   )

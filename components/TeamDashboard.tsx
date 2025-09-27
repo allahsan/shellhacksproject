@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from '@/lib/supabase/client'
 import { Howl } from 'howler'
+import { useRouter } from 'next/navigation'
 import VotingModal from '@/components/voting/VotingModal'
 import UserStatus, { StatusIndicator } from '@/components/UserStatus'
 import { playJoinSound, playAlertSound, playSuccessSound, playNotificationSound } from '@/lib/utils/soundManager'
@@ -53,6 +54,7 @@ interface TeamDashboardProps {
 }
 
 export default function TeamDashboard({ profileId, userName }: TeamDashboardProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [team, setTeam] = useState<Team | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -69,6 +71,7 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
   const [saving, setSaving] = useState(false)
   const [lastSaveTime, setLastSaveTime] = useState(0)
   const [saveError, setSaveError] = useState('')
+  const [loggingOut, setLoggingOut] = useState(false)
 
   useEffect(() => {
     loadTeamData()
@@ -360,38 +363,56 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
     <div className="space-y-6">
       {/* Profile Management Section */}
       <div className="bg-white border-2 border-black p-4 md:p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-black text-gray-900">👤 My Profile</h2>
-          {!editingProfile ? (
-            <button
-              onClick={() => {
-                setEditingProfile(true)
-                setSaveError('')
-              }}
-              className="px-4 py-2 bg-amber-500 text-white font-black border-2 border-black hover:bg-amber-600 transition-colors"
-            >
-              EDIT PROFILE
-            </button>
-          ) : (
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setEditingProfile(false)
-                  setSaveError('')
-                }}
-                className="px-4 py-2 bg-gray-500 text-white font-black border-2 border-black hover:bg-gray-600 transition-colors"
-              >
-                CANCEL
-              </button>
-              <button
-                onClick={handleSaveProfile}
-                disabled={saving}
-                className="px-4 py-2 bg-green-500 text-white font-black border-2 border-black hover:bg-green-600 transition-colors disabled:opacity-50"
-              >
-                {saving ? 'SAVING...' : 'SAVE'}
-              </button>
-            </div>
-          )}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <h2 className="text-xl sm:text-2xl font-black text-gray-900">👤 My Profile</h2>
+          <div className="flex gap-2 w-full sm:w-auto">
+            {!editingProfile ? (
+              <>
+                <button
+                  onClick={() => {
+                    setEditingProfile(true)
+                    setSaveError('')
+                  }}
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-amber-500 text-white font-black border-2 border-black hover:bg-amber-600 transition-colors text-sm sm:text-base"
+                >
+                  EDIT PROFILE
+                </button>
+                <button
+                  onClick={async () => {
+                    setLoggingOut(true)
+                    // Clear session storage
+                    sessionStorage.removeItem('teamdock_profile_id')
+                    sessionStorage.removeItem('teamdock_user_name')
+                    // Redirect to home/wall view
+                    window.location.href = '/?view=home'
+                  }}
+                  disabled={loggingOut}
+                  className="lg:hidden flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-red-500 text-white font-black border-2 border-black hover:bg-red-600 transition-colors disabled:opacity-50 text-sm sm:text-base"
+                >
+                  {loggingOut ? '...' : 'LOGOUT'}
+                </button>
+              </>
+            ) : (
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => {
+                    setEditingProfile(false)
+                    setSaveError('')
+                  }}
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-500 text-white font-black border-2 border-black hover:bg-gray-600 transition-colors text-sm sm:text-base"
+                >
+                  CANCEL
+                </button>
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={saving}
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-green-500 text-white font-black border-2 border-black hover:bg-green-600 transition-colors disabled:opacity-50 text-sm sm:text-base"
+                >
+                  {saving ? 'SAVING...' : 'SAVE'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Error Message */}

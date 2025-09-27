@@ -55,13 +55,13 @@ export default function JoinTeamPage() {
       const { data: teamsData, error } = await supabase
         .from('teams')
         .select('*')
-        .eq('status', 'forming')
+        .in('status', ['recruiting', 'forming'])  // Check for both recruiting and forming status
 
       if (error) throw error
 
       // Get member counts for each team
       const teamsWithCounts = await Promise.all(
-        (teamsData || []).map(async (team) => {
+        (teamsData || []).map(async (team: any) => {
           const { count } = await supabase
             .from('team_members')
             .select('*', { count: 'exact', head: true })
@@ -142,7 +142,7 @@ export default function JoinTeamPage() {
 
     try {
       // Create profile
-      const { data: profileId, error: profileError } = await supabase.rpc('create_profile', {
+      const { data: profileId, error: profileError } = await (supabase.rpc as any)('create_profile', {
         p_name: authData.name,
         p_email: authData.email || null,
         p_phone: null,
@@ -153,7 +153,7 @@ export default function JoinTeamPage() {
       if (profileError) throw profileError
 
       // Submit join request
-      const { data, error } = await supabase.rpc('request_to_join', {
+      const { data, error } = await (supabase.rpc as any)('request_to_join', {
         p_requester_id: profileId,
         p_team_id: selectedTeam?.id,
         p_requested_role: authData.requestedRole,

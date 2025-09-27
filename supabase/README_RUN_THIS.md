@@ -1,0 +1,53 @@
+# Supabase SQL Functions to Execute
+
+## IMPORTANT: Run the following SQL in your Supabase SQL Editor
+
+### 1. Secret Code Update Function
+
+This function needs to be executed in Supabase to enable secret code updates:
+
+```sql
+-- Function to update user's secret code
+CREATE OR REPLACE FUNCTION update_secret_code(
+  p_profile_id UUID,
+  p_current_code TEXT,
+  p_new_code TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Verify the current secret code matches (compare hashed versions)
+  IF NOT EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = p_profile_id
+    AND secret_code = encode(digest(p_current_code, 'sha256'), 'hex')
+  ) THEN
+    RAISE EXCEPTION 'Current secret code is incorrect';
+  END IF;
+
+  -- Update the secret code (store as hashed)
+  UPDATE profiles
+  SET secret_code = encode(digest(p_new_code, 'sha256'), 'hex')
+  WHERE id = p_profile_id;
+
+  RETURN TRUE;
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION update_secret_code TO authenticated;
+GRANT EXECUTE ON FUNCTION update_secret_code TO anon;
+```
+
+### How to Execute:
+
+1. Go to your Supabase Dashboard
+2. Navigate to SQL Editor
+3. Copy and paste the above SQL
+4. Click "Run" to execute
+5. The function will be created and ready to use
+
+### Testing:
+After creating the function, the secret code update feature in the Settings tab should work properly.

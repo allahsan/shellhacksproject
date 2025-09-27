@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sound Generator for TeamDock</title>
+    <style>
+        body {
+            font-family: system-ui;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .sound-item {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #000;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #333;
+        }
+        .description {
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔊 TeamDock Sound Generator</h1>
+    <p>Click on each button to generate and download placeholder sound files.</p>
+    <p><strong>Note:</strong> These are programmatically generated beeps. Replace with proper sound files for production.</p>
+
+    <div class="sound-item">
+        <h3>📢 Notification Sound</h3>
+        <button onclick="generateSound('notification', 440, 0.2)">Generate notification.mp3</button>
+        <button onclick="playSound(440, 0.2)">Preview</button>
+        <p class="description">General notification (440Hz, 0.2s) - Used for general alerts</p>
+    </div>
+
+    <div class="sound-item">
+        <h3>🤝 Join Sound</h3>
+        <button onclick="generateSound('join', [392, 523], 0.3)">Generate join.mp3</button>
+        <button onclick="playSound([392, 523], 0.3)">Preview</button>
+        <p class="description">Happy ascending tone (G4→C5, 0.3s) - When member joins team</p>
+    </div>
+
+    <div class="sound-item">
+        <h3>⚠️ Alert Sound</h3>
+        <button onclick="generateSound('alert', [880, 660], 0.5)">Generate alert.mp3</button>
+        <button onclick="playSound([880, 660], 0.5)">Preview</button>
+        <p class="description">Urgent descending tone (A5→E5, 0.5s) - For urgent notifications like voting</p>
+    </div>
+
+    <div class="sound-item">
+        <h3>✅ Success Sound</h3>
+        <button onclick="generateSound('success', [523, 659, 784], 0.4)">Generate success.mp3</button>
+        <button onclick="playSound([523, 659, 784], 0.4)">Preview</button>
+        <p class="description">Happy chord progression (C5→E5→G5, 0.4s) - For successful actions</p>
+    </div>
+
+    <div class="sound-item">
+        <h3>❌ Error Sound</h3>
+        <button onclick="generateSound('error', 220, 0.3)">Generate error.mp3</button>
+        <button onclick="playSound(220, 0.3)">Preview</button>
+        <p class="description">Low buzz (220Hz, 0.3s) - For errors</p>
+    </div>
+
+    <div class="sound-item">
+        <h3>🔔 Ping Sound</h3>
+        <button onclick="generateSound('ping', 1000, 0.1)">Generate ping.mp3</button>
+        <button onclick="playSound(1000, 0.1)">Preview</button>
+        <p class="description">Quick high ping (1000Hz, 0.1s) - For messages</p>
+    </div>
+
+    <div class="sound-item">
+        <h3>💨 Whoosh Sound</h3>
+        <button onclick="generateSound('whoosh', 'sweep', 0.3)">Generate whoosh.mp3</button>
+        <button onclick="playSound('sweep', 0.3)">Preview</button>
+        <p class="description">Frequency sweep (200→800Hz, 0.3s) - For transitions</p>
+    </div>
+
+    <script>
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(frequency, duration) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            if (frequency === 'sweep') {
+                // Whoosh effect
+                oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + duration);
+                oscillator.type = 'sine';
+            } else if (Array.isArray(frequency)) {
+                // Multiple tones in sequence
+                frequency.forEach((freq, index) => {
+                    const osc = audioContext.createOscillator();
+                    const gain = audioContext.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioContext.destination);
+                    osc.frequency.value = freq;
+                    osc.type = 'sine';
+
+                    const startTime = audioContext.currentTime + (index * duration / frequency.length);
+                    const endTime = startTime + (duration / frequency.length);
+
+                    gain.gain.setValueAtTime(0, startTime);
+                    gain.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+                    gain.gain.linearRampToValueAtTime(0.3, endTime - 0.01);
+                    gain.gain.linearRampToValueAtTime(0, endTime);
+
+                    osc.start(startTime);
+                    osc.stop(endTime);
+                });
+                return;
+            } else {
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+            }
+
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + duration - 0.01);
+            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function generateSound(filename, frequency, duration) {
+            // Create offline context for rendering
+            const sampleRate = 44100;
+            const offlineContext = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+
+            if (frequency === 'sweep') {
+                const oscillator = offlineContext.createOscillator();
+                const gainNode = offlineContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(offlineContext.destination);
+
+                oscillator.frequency.setValueAtTime(200, 0);
+                oscillator.frequency.exponentialRampToValueAtTime(800, duration);
+                oscillator.type = 'sine';
+
+                gainNode.gain.setValueAtTime(0, 0);
+                gainNode.gain.linearRampToValueAtTime(0.3, 0.01);
+                gainNode.gain.linearRampToValueAtTime(0.3, duration - 0.01);
+                gainNode.gain.linearRampToValueAtTime(0, duration);
+
+                oscillator.start(0);
+                oscillator.stop(duration);
+            } else if (Array.isArray(frequency)) {
+                frequency.forEach((freq, index) => {
+                    const oscillator = offlineContext.createOscillator();
+                    const gainNode = offlineContext.createGain();
+                    oscillator.connect(gainNode);
+                    gainNode.connect(offlineContext.destination);
+
+                    oscillator.frequency.value = freq;
+                    oscillator.type = 'sine';
+
+                    const startTime = index * duration / frequency.length;
+                    const endTime = startTime + (duration / frequency.length);
+
+                    gainNode.gain.setValueAtTime(0, startTime);
+                    gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+                    gainNode.gain.linearRampToValueAtTime(0.3, endTime - 0.01);
+                    gainNode.gain.linearRampToValueAtTime(0, endTime);
+
+                    oscillator.start(startTime);
+                    oscillator.stop(endTime);
+                });
+            } else {
+                const oscillator = offlineContext.createOscillator();
+                const gainNode = offlineContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(offlineContext.destination);
+
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+
+                gainNode.gain.setValueAtTime(0, 0);
+                gainNode.gain.linearRampToValueAtTime(0.3, 0.01);
+                gainNode.gain.linearRampToValueAtTime(0.3, duration - 0.01);
+                gainNode.gain.linearRampToValueAtTime(0, duration);
+
+                oscillator.start(0);
+                oscillator.stop(duration);
+            }
+
+            offlineContext.startRendering().then(buffer => {
+                const wav = audioBufferToWav(buffer);
+                const blob = new Blob([wav], { type: 'audio/wav' });
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename + '.wav';
+                a.click();
+
+                alert(`Generated ${filename}.wav! Note: Convert to MP3 using an online converter or ffmpeg for smaller file size.`);
+            });
+        }
+
+        function audioBufferToWav(buffer) {
+            const length = buffer.length * buffer.numberOfChannels * 2 + 44;
+            const arrayBuffer = new ArrayBuffer(length);
+            const view = new DataView(arrayBuffer);
+            const channels = [];
+            let offset = 0;
+            let pos = 0;
+
+            // Write WAV header
+            const setUint16 = (data) => {
+                view.setUint16(pos, data, true);
+                pos += 2;
+            };
+            const setUint32 = (data) => {
+                view.setUint32(pos, data, true);
+                pos += 4;
+            };
+
+            // RIFF chunk descriptor
+            setUint32(0x46464952); // "RIFF"
+            setUint32(length - 8);
+            setUint32(0x45564157); // "WAVE"
+
+            // FMT sub-chunk
+            setUint32(0x20746d66); // "fmt "
+            setUint32(16);
+            setUint16(1); // PCM
+            setUint16(buffer.numberOfChannels);
+            setUint32(buffer.sampleRate);
+            setUint32(buffer.sampleRate * 2 * buffer.numberOfChannels);
+            setUint16(buffer.numberOfChannels * 2);
+            setUint16(16);
+
+            // Data sub-chunk
+            setUint32(0x61746164); // "data"
+            setUint32(length - pos - 4);
+
+            // Write audio data
+            const volume = 0.8;
+            for (let i = 0; i < buffer.numberOfChannels; i++) {
+                channels.push(buffer.getChannelData(i));
+            }
+
+            while (pos < length) {
+                for (let i = 0; i < buffer.numberOfChannels; i++) {
+                    let sample = channels[i][offset] * volume;
+                    sample = Math.max(-1, Math.min(1, sample));
+                    sample = sample * 0x7FFF;
+                    view.setInt16(pos, sample, true);
+                    pos += 2;
+                }
+                offset++;
+            }
+
+            return arrayBuffer;
+        }
+    </script>
+</body>
+</html>

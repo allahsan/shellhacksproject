@@ -3,7 +3,10 @@
     "allow": [
       "Bash(git remote add:*)",
       "Bash(npm install:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(del tailwind.config.js)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

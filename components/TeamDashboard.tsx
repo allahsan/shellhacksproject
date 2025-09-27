@@ -85,9 +85,15 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
 
       if (data) {
         setUserProfile(data)
+        // Format phone if it's just digits from database
+        let formattedPhone = data.phone || ''
+        if (formattedPhone && formattedPhone.match(/^\d{10}$/)) {
+          // Convert 3055550123 to 305-555-0123
+          formattedPhone = `${formattedPhone.slice(0,3)}-${formattedPhone.slice(3,6)}-${formattedPhone.slice(6)}`
+        }
         setProfileForm({
           email: data.email || '',
-          phone: data.phone || '',
+          phone: formattedPhone,
           proficiencies: data.proficiencies || []
         })
       }

@@ -155,7 +155,7 @@ export default function UserStatus({
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="absolute top-full left-0 mt-1 bg-white border-2 border-black shadow-lg z-50 min-w-[150px]"
+              className="absolute top-full left-0 mt-1 bg-white border-2 border-black shadow-lg z-50 min-w-[120px] sm:min-w-[150px]"
             >
               {Object.entries(statusConfig).map(([key, conf]) => (
                 <button

@@ -93,8 +93,8 @@ export default function CreateTeamView({ profileId, profileName, onTeamCreated }
       className="bg-white border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]"
     >
       {/* Header */}
-      <div className="bg-amber-400 border-b-2 border-black p-6">
-        <h2 className="text-2xl font-black">CREATE YOUR TEAM</h2>
+      <div className="bg-amber-400 border-b-2 border-black p-4 md:p-6">
+        <h2 className="text-xl md:text-2xl font-black">CREATE YOUR TEAM</h2>
         <p className="text-sm font-medium mt-1">Welcome {profileName}! Let's set up your team.</p>
       </div>
 
@@ -106,7 +106,7 @@ export default function CreateTeamView({ profileId, profileName, onTeamCreated }
       )}
 
       {/* Form */}
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
         {/* Team Name */}
         <div>
           <label className="block text-xs font-black text-gray-700 mb-2">
@@ -140,7 +140,7 @@ export default function CreateTeamView({ profileId, profileName, onTeamCreated }
           <label className="block text-xs font-black text-gray-700 mb-2">
             LOOKING FOR * (Select roles you need)
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {availableRoles.map((role) => (
               <button
                 key={role}
@@ -175,7 +175,7 @@ export default function CreateTeamView({ profileId, profileName, onTeamCreated }
           <label className="block text-xs font-black text-gray-700 mb-2">
             TECH STACK (Optional)
           </label>
-          <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+          <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
             {techStackOptions.map((tech) => (
               <button
                 key={tech}

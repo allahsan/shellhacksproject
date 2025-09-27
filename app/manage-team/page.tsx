@@ -581,7 +581,7 @@ function ManageTeamPageContent() {
           transition={{ duration: 0.3 }}
           className="bg-white border-2 border-black max-w-md w-full p-8"
         >
-          <h1 className="text-3xl font-black text-black mb-2">
+          <h1 className="text-2xl sm:text-3xl font-black text-black mb-2">
             Access Your Team ⚡
           </h1>
           <p className="text-gray-600 mb-6">
@@ -660,12 +660,12 @@ function ManageTeamPageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex">
-      {/* Left Sidebar - Matching Home Page */}
-      <aside className="w-64 bg-black text-white h-screen sticky top-0 flex flex-col border-r-4 border-amber-500">
+      {/* Left Sidebar - Hidden on mobile */}
+      <aside className="hidden lg:flex w-64 bg-black text-white h-screen sticky top-0 flex-col border-r-4 border-amber-500">
         {/* Logo */}
         <div className="p-4 border-b-2 border-amber-500/30">
           <Link href="/" className="block">
-            <h1 className="text-3xl font-black hover:text-amber-400 transition-colors">
+            <h1 className="text-2xl lg:text-3xl font-black hover:text-amber-400 transition-colors">
               TEAMDOCK
             </h1>
             <p className="text-xs text-amber-400 mt-1">Hackathon Team Formation</p>
@@ -734,10 +734,10 @@ function ManageTeamPageContent() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header Bar */}
-        <header className="bg-white border-b-2 border-black px-6 py-4 shadow-hard">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h2 className="text-xl font-black text-black">{team.name}</h2>
+        <header className="bg-white border-b-2 border-black px-4 lg:px-6 py-4 shadow-hard">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <h2 className="text-lg lg:text-xl font-black text-black">{team.name}</h2>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                 team.status === 'recruiting' || team.status === 'forming' ? 'bg-green-100 text-green-700' :
                 team.status === 'locked' || team.status === 'closed' ? 'bg-yellow-100 text-yellow-700' :
@@ -755,8 +755,8 @@ function ManageTeamPageContent() {
               </div>
             </div>
 
-            {/* ShellHack Branding */}
-            <div className="flex items-center gap-3">
+            {/* ShellHack Branding - Hidden on mobile */}
+            <div className="hidden lg:flex items-center gap-3">
               <span className="text-2xl font-black text-black">SHELLHACKS</span>
               <span className="text-amber-500 font-black">2025</span>
             </div>
@@ -765,12 +765,12 @@ function ManageTeamPageContent() {
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto">
-          <div className="container mx-auto px-6 py-6">
+          <div className="container mx-auto px-4 lg:px-6 py-4 lg:py-6">
             {/* Team Info */}
-            <div className="mb-8">
-              <div className="bg-white border-2 border-black p-6 shadow-hard">
-                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Project Description</h2>
-                <p className="text-gray-800 text-lg font-medium mb-4">
+            <div className="mb-6 lg:mb-8">
+              <div className="bg-white border-2 border-black p-4 lg:p-6 shadow-hard">
+                <h2 className="text-xs lg:text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Project Description</h2>
+                <p className="text-gray-800 text-base lg:text-lg font-medium mb-4">
                   {team.description}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -783,8 +783,8 @@ function ManageTeamPageContent() {
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-2 mb-6">
+            {/* Tabs - Scrollable on mobile */}
+            <div className="flex gap-2 mb-6 overflow-x-auto">
               <button
             onClick={() => handleTabChange('members')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -832,14 +832,14 @@ function ManageTeamPageContent() {
           transition={{ duration: 0.2 }}
         >
           {activeTab === 'members' && (
-            <div className="bg-white border-2 border-black p-6">
+            <div className="bg-white border-2 border-black p-4 lg:p-6">
               <h2 className="text-xl font-black mb-6">Team Roster</h2>
 
               {/* Current Team Members - Filled Roles */}
               {members.length > 0 && (
                 <div className="mb-6">
                   <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Current Members</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {members.map((member) => {
                       const isRequestedRole = team.looking_for_roles.includes(member.role)
                       return (
@@ -903,7 +903,7 @@ function ManageTeamPageContent() {
                 return openRoles.length > 0 ? (
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Open Positions</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       {openRoles.map((role) => (
                         <div
                           key={role}
@@ -937,7 +937,7 @@ function ManageTeamPageContent() {
           )}
 
           {activeTab === 'requests' && isLeader && (
-            <div className="bg-white border-2 border-black p-6">
+            <div className="bg-white border-2 border-black p-4 lg:p-6">
               <h2 className="text-xl font-black mb-4">Join Requests</h2>
               {joinRequests.length === 0 ? (
                 <p className="text-gray-600">No pending join requests</p>
@@ -945,7 +945,7 @@ function ManageTeamPageContent() {
                 <div className="space-y-4">
                   {joinRequests.map((request) => (
                     <div key={request.id} className="p-4 border border-gray-200 rounded-lg">
-                      <div className="flex items-start justify-between">
+                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
                         <div className="flex-1">
                           <h3 className="font-semibold text-gray-900">
                             {request.requester.name}
@@ -966,7 +966,7 @@ function ManageTeamPageContent() {
                             ))}
                           </div>
                         </div>
-                        <div className="flex gap-2 ml-4">
+                        <div className="flex gap-2">
                           <button
                             onClick={() => handleJoinRequest(request.id, true)}
                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
@@ -991,7 +991,7 @@ function ManageTeamPageContent() {
           {activeTab === 'settings' && (
             <div className="space-y-6">
               {/* Profile Settings */}
-              <div className="bg-white border-2 border-black p-6">
+              <div className="bg-white border-2 border-black p-4 lg:p-6">
                 <h2 className="text-xl font-black mb-6">Profile Settings</h2>
 
                 {profileUpdateError && (
@@ -1010,7 +1010,7 @@ function ManageTeamPageContent() {
                   {/* Contact Information */}
                   <div>
                     <h3 className="font-bold text-gray-900 mb-3">Contact Information</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <div>
                         <label className="label">Email</label>
                         <input
@@ -1098,7 +1098,7 @@ function ManageTeamPageContent() {
               </div>
 
               {/* Team Settings */}
-              <div className="bg-white border-2 border-black p-6">
+              <div className="bg-white border-2 border-black p-4 lg:p-6">
                 <h2 className="text-xl font-black mb-6">Team Information</h2>
 
                 {teamUpdateError && (
@@ -1181,7 +1181,7 @@ function ManageTeamPageContent() {
 
                       <div>
                         <label className="label">Tech Stack (Optional)</label>
-                        <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                           {techStackOptions.map((tech) => (
                             <button
                               key={tech}
@@ -1213,7 +1213,7 @@ function ManageTeamPageContent() {
 
                       <div>
                         <label className="label">Looking For * (Roles needed)</label>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                           {availableRoles.map((role) => (
                             <button
                               key={role}

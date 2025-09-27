@@ -442,10 +442,10 @@ export default function ManageTeam({ profileId, teamId, isLeader = false }: Mana
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+      <div className="bg-white border-2 border-black p-4 md:p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-black text-gray-900">
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900">
               {isLeader ? '⚙️ Manage Team' : '👁️ View Team'}: {team.name}
             </h1>
             <p className="text-gray-600 mt-2">
@@ -535,7 +535,7 @@ export default function ManageTeam({ profileId, teamId, isLeader = false }: Mana
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {/* General Information */}
           {activeSection === 'general' && (
             <motion.div
@@ -844,7 +844,7 @@ export default function ManageTeam({ profileId, teamId, isLeader = false }: Mana
               animate={{ opacity: 1, y: 0 }}
               className="space-y-4"
             >
-              <div className="bg-red-50 border-2 border-red-300 p-6 rounded">
+              <div className="bg-red-50 border-2 border-red-300 p-4 md:p-6 rounded">
                 <h3 className="text-xl font-black text-red-700 mb-4">⚠️ LEAVE TEAM</h3>
                 <p className="text-gray-700 mb-4">
                   {isLeader

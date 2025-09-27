@@ -47,7 +47,7 @@ export default function SoundSettings() {
 
       {/* Settings Panel */}
       {isOpen && (
-        <div className="absolute bottom-16 right-0 bg-white border-2 border-black p-4 w-64 shadow-xl">
+        <div className="absolute bottom-16 right-0 bg-white border-2 border-black p-4 w-56 sm:w-64 shadow-xl">
           <h3 className="font-bold mb-3">Sound Settings</h3>
 
           <div className="space-y-3">

@@ -14,7 +14,8 @@
       "Bash(dir:*)",
       "Bash(npx supabase db dump:*)",
       "Bash(npx supabase db push:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(rg:*)"
     ],
     "deny": [],
     "ask": []

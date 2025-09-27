@@ -359,7 +359,7 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
   return (
     <div className="space-y-6">
       {/* Profile Management Section */}
-      <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+      <div className="bg-white border-2 border-black p-4 md:p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-black text-gray-900">👤 My Profile</h2>
           {!editingProfile ? (
@@ -513,9 +513,9 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
       {!team ? (
         <>
           {/* Solo Hacker Badge */}
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 border-2 border-black p-8 shadow-[4px_4px_0px_rgba(0,0,0,1)] text-center">
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 border-2 border-black p-6 md:p-8 shadow-[4px_4px_0px_rgba(0,0,0,1)] text-center">
             <div className="text-6xl mb-4">🚀</div>
-            <h2 className="text-3xl font-black text-white mb-2">SOLO HACKER</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-white mb-2">SOLO HACKER</h2>
             <p className="text-white/90 font-bold text-lg mb-4">
               You're flying solo at ShellHacks 2025!
             </p>
@@ -528,7 +528,7 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
 
           {/* Solo Hacker Options */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_rgba(0,0,0,1)] transition-all h-full flex flex-col">
+            <div className="bg-white border-2 border-black p-4 md:p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_rgba(0,0,0,1)] transition-all h-full flex flex-col">
               <h3 className="text-xl font-black text-gray-900 mb-3">🤝 Join a Team</h3>
               <p className="text-gray-600 mb-4 flex-grow">
                 Browse recruiting teams and find your perfect match
@@ -541,7 +541,7 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
               </button>
             </div>
 
-            <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_rgba(0,0,0,1)] transition-all h-full flex flex-col">
+            <div className="bg-white border-2 border-black p-4 md:p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_rgba(0,0,0,1)] transition-all h-full flex flex-col">
               <h3 className="text-xl font-black text-gray-900 mb-3">✨ Create a Team</h3>
               <p className="text-gray-600 mb-4 flex-grow">
                 Start your own team and recruit other hackers
@@ -561,7 +561,7 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
 
       {/* Team Info */}
       <div className="mb-8">
-        <div className="bg-white border-2 border-black p-6 shadow-hard">
+        <div className="bg-white border-2 border-black p-4 md:p-6 shadow-hard">
           <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Tech Stack</h2>
           <div className="flex flex-wrap gap-2">
             {team.tech_stack.map((tech) => (

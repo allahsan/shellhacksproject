@@ -40,6 +40,7 @@ function HomePageContent() {
   const [showPostModal, setShowPostModal] = useState(false)
   const [hackathonProgress, setHackathonProgress] = useState<{ timeRemaining: string; percentage: number }>({ timeRemaining: '', percentage: 0 })
   const [flipText, setFlipText] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Login data
   const [loginData, setLoginData] = useState({
@@ -567,11 +568,33 @@ function HomePageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex overflow-hidden">
-      {/* Left Sidebar - Fixed with Team Dashboard Theme */}
-      <aside className="w-64 bg-black text-white h-screen fixed top-0 left-0 flex flex-col border-r-4 border-amber-500 z-40">
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-black text-white rounded-md border-2 border-amber-500"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {mobileMenuOpen ? (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          ) : (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          )}
+        </svg>
+      </button>
+
+      {/* Overlay for mobile */}
+      {mobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Left Sidebar - Responsive */}
+      <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 w-64 bg-black text-white h-screen fixed top-0 left-0 flex flex-col border-r-4 border-amber-500 z-40 transition-transform duration-300`}>
         {/* Logo */}
         <div className="p-4 border-b-2 border-amber-500/30">
-          <h1 className="text-3xl font-black">
+          <h1 className="text-2xl lg:text-3xl font-black">
             TEAMDOCK
           </h1>
           <p className="text-xs text-amber-400 mt-1">Hackathon Team Formation</p>
@@ -583,6 +606,7 @@ function HomePageContent() {
             onClick={() => {
               router.push('/')
               setCurrentView('home')
+              setMobileMenuOpen(false)
             }}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
               currentView === 'home'
@@ -599,6 +623,7 @@ function HomePageContent() {
             onClick={() => {
               router.push('/?view=statistics')
               setCurrentView('statistics')
+              setMobileMenuOpen(false)
             }}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
               currentView === 'statistics'
@@ -616,6 +641,7 @@ function HomePageContent() {
               onClick={() => {
                 router.push('/?view=profile')
                 setCurrentView('profile')
+                setMobileMenuOpen(false)
               }}
               className="w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium hover:bg-amber-500/20 text-gray-300 hover:text-amber-400"
             >
@@ -643,6 +669,7 @@ function HomePageContent() {
                   onClick={() => {
                     router.push('/?view=browse-teams')
                     setCurrentView('browse-teams')
+                    setMobileMenuOpen(false)
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
                     currentView === 'browse-teams'
@@ -660,6 +687,7 @@ function HomePageContent() {
                     onClick={() => {
                       router.push('/?view=manage-team')
                       setCurrentView('manage-team')
+                      setMobileMenuOpen(false)
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
                       currentView === 'manage-team'
@@ -675,6 +703,7 @@ function HomePageContent() {
                     onClick={() => {
                       router.push('/?view=create-team')
                       setCurrentView('create-team')
+                      setMobileMenuOpen(false)
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
                       currentView === 'create-team'
@@ -693,6 +722,7 @@ function HomePageContent() {
                     onClick={() => {
                       router.push('/?view=join-requests')
                       setCurrentView('join-requests')
+                      setMobileMenuOpen(false)
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium relative ${
                       currentView === 'join-requests'
@@ -717,6 +747,7 @@ function HomePageContent() {
                 onClick={() => {
                   router.push('/?view=browse-teams')
                   setCurrentView('browse-teams')
+                  setMobileMenuOpen(false)
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
                   currentView === 'browse-teams'
@@ -944,7 +975,7 @@ function HomePageContent() {
                     ) : (
                       <>
                         <div className="max-h-40 overflow-y-auto">
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {availableSkills.map((skill) => (
                               <button
                                 key={skill}
@@ -985,12 +1016,12 @@ function HomePageContent() {
         </div>
       </aside>
 
-      {/* Main Content - Add left margin to account for fixed sidebar */}
-      <div className="flex-1 flex flex-col ml-64 h-screen">
+      {/* Main Content - Responsive margin */}
+      <div className="flex-1 flex flex-col lg:ml-64 h-screen">
         {/* Header Bar - Dynamic based on current view */}
-        <header className="bg-white border-b-2 border-black px-6 py-4 flex-shrink-0 relative z-30 shadow-[0_4px_6px_rgba(0,0,0,0.1)]">
+        <header className="bg-white border-b-2 border-black px-4 lg:px-6 py-4 flex-shrink-0 relative z-20 shadow-[0_4px_6px_rgba(0,0,0,0.1)]">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 ml-12 lg:ml-0">
               <h2 className="text-xl font-black text-black">
                 {currentView === 'home' && 'THE SCROLL'}
                 {currentView === 'profile' && 'MY PROFILE'}
@@ -1181,7 +1212,7 @@ function HomePageContent() {
                     <>
                       {/* Live Stats Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                        <div className="bg-white border-2 border-black p-4 md:p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-3xl">🔥</span>
                             <div className="flex items-center gap-2">
@@ -1189,11 +1220,11 @@ function HomePageContent() {
                               <span className="text-xs bg-green-400 text-black px-2 py-1 rounded font-bold">LIVE</span>
                             </div>
                           </div>
-                          <p className="text-4xl font-black text-amber-500">{statisticsData?.active_teams || activeTeamsCount}</p>
+                          <p className="text-2xl md:text-4xl font-black text-amber-500">{statisticsData?.active_teams || activeTeamsCount}</p>
                           <p className="text-sm font-bold text-gray-700 mt-1">ACTIVE TEAMS</p>
                         </div>
 
-                        <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                        <div className="bg-white border-2 border-black p-4 md:p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-3xl">👥</span>
                             <div className="flex items-center gap-2">
@@ -1201,13 +1232,13 @@ function HomePageContent() {
                               <span className="text-xs bg-amber-400 text-black px-2 py-1 rounded font-bold">GROWING</span>
                             </div>
                           </div>
-                          <p className="text-4xl font-black text-amber-500">{statisticsData?.total_members || totalMembers}</p>
+                          <p className="text-2xl md:text-4xl font-black text-amber-500">{statisticsData?.total_members || totalMembers}</p>
                           <p className="text-sm font-bold text-gray-700 mt-1">TOTAL HACKERS</p>
                         </div>
                       </div>
 
                   {/* Hackathon Progress */}
-                  <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                  <div className="bg-white border-2 border-black p-4 md:p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
                     <h3 className="text-xl font-black text-black mb-4">🏁 HACKATHON PROGRESS</h3>
                     <div className="space-y-4">
                       <div>
@@ -1238,7 +1269,7 @@ function HomePageContent() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 pt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                         <div className="text-center p-3 bg-amber-50 border border-amber-300 relative">
                           <span className="absolute top-2 right-2 inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                           <p className="text-2xl font-black text-amber-600">{statisticsData?.teams_recruiting || 0}</p>
@@ -1254,7 +1285,7 @@ function HomePageContent() {
                   </div>
 
                   {/* Skill Supply vs Demand Board */}
-                  <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                  <div className="bg-white border-2 border-black p-4 md:p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
                     <h3 className="text-xl font-black text-black mb-4">🔥 SKILL MARKET BOARD</h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:divide-x-2 md:divide-black">
@@ -1363,7 +1394,7 @@ function HomePageContent() {
                     {/* Summary Stats */}
                     {skillSupplyDemand?.summary && (
                       <div className="mt-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-4 border-t-2 border-gray-300">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 pt-4 border-t-2 border-gray-300">
                           <div className="text-center p-2 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-300">
                             <p className="text-xl font-black text-blue-600">
                               {skillSupplyDemand.summary.total_skills_in_demand}
@@ -1405,7 +1436,7 @@ function HomePageContent() {
                   </div>
 
                   {/* Recent Activity Feed */}
-                  <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                  <div className="bg-white border-2 border-black p-4 md:p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xl font-black text-black">📢 LIVE ACTIVITY</h3>
                       <div className="flex items-center gap-2">
@@ -1517,7 +1548,7 @@ function HomePageContent() {
       {currentView === 'home' && currentUser && (
         <button
           onClick={() => setShowPostModal(true)}
-          className="fixed bottom-8 right-8 bg-amber-500 hover:bg-amber-600 text-black px-6 py-4 rounded-full font-black shadow-2xl hover:scale-110 transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.6)] border-2 border-black z-50 group"
+          className="fixed bottom-4 right-4 md:bottom-8 md:right-8 bg-amber-500 hover:bg-amber-600 text-black px-4 py-3 md:px-6 md:py-4 rounded-full font-black shadow-2xl hover:scale-110 transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.6)] border-2 border-black z-50 group"
         >
           <div className="flex items-center gap-2">
             <span className="text-2xl">📣</span>

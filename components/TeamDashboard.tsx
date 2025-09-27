@@ -64,7 +64,6 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
   const [profileForm, setProfileForm] = useState({
     email: '',
     phone: '',
-    secret_code: '',
     proficiencies: [] as string[]
   })
   const [saving, setSaving] = useState(false)
@@ -89,7 +88,6 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
         setProfileForm({
           email: data.email || '',
           phone: data.phone || '',
-          secret_code: data.secret_code || '',
           proficiencies: data.proficiencies || []
         })
       }
@@ -167,7 +165,7 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
 
     // Validate phone number format
     if (!validatePhone(profileForm.phone)) {
-      setSaveError('📱 Almost there! Please enter a complete 10-digit phone number (like 571-842-2187)')
+      setSaveError('📱 Almost there! Please enter a complete 10-digit phone number (like 305-555-0123)')
       return
     }
 
@@ -178,30 +176,23 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
     }
 
     // Security: Check for malicious input
-    if (containsMaliciousPattern(profileForm.email) ||
-        containsMaliciousPattern(profileForm.secret_code)) {
+    if (containsMaliciousPattern(profileForm.email)) {
       setSaveError('⚠️ Hold up! We detected some unusual characters. Please use only standard text.')
       return
     }
 
-    // Security: Validate secret code length
-    if (profileForm.secret_code && profileForm.secret_code.length > 50) {
-      setSaveError('🔐 Your secret code is too long! Keep it under 50 characters please.')
-      return
-    }
 
     setSaving(true)
     try {
       // Sanitize inputs before saving
       const sanitizedEmail = sanitizeInput(profileForm.email)
-      const sanitizedSecretCode = sanitizeInput(profileForm.secret_code)
 
       // Use RPC function to bypass RLS restrictions
       const { data, error } = await (supabase.rpc as any)('update_profile_info', {
         p_profile_id: profileId,
         p_email: sanitizedEmail,
         p_phone: profileForm.phone, // Already validated
-        p_secret_code: sanitizedSecretCode,
+        p_secret_code: '', // Empty - function will ignore it
         p_proficiencies: profileForm.proficiencies.slice(0, 20) // Limit skills
       })
 
@@ -469,7 +460,7 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
                     setProfileForm({...profileForm, phone: formatted})
                   }}
                   disabled={!editingProfile}
-                  placeholder="571-842-2187"
+                  placeholder="305-555-0123"
                   maxLength={12}
                   className={`w-full px-3 py-2 border-2 ${
                     editingProfile
@@ -480,27 +471,6 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
                         : 'border-amber-500 bg-amber-50'
                       : 'border-gray-300 bg-gray-100'
                   } font-medium`}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Secret Code</label>
-                <input
-                  type="password"
-                  value={profileForm.secret_code}
-                  onChange={(e) => {
-                    const value = e.target.value.slice(0, 50) // Limit length
-                    setProfileForm({...profileForm, secret_code: value})
-                  }}
-                  onPaste={(e) => {
-                    e.preventDefault()
-                    const pastedText = e.clipboardData.getData('text/plain')
-                    const sanitized = sanitizeInput(pastedText.slice(0, 50))
-                    setProfileForm({...profileForm, secret_code: sanitized})
-                  }}
-                  disabled={!editingProfile}
-                  placeholder={editingProfile ? "Enter new code" : "••••••••"}
-                  maxLength={50}
-                  className={`w-full px-3 py-2 border-2 ${editingProfile ? 'border-black' : 'border-gray-300 bg-gray-100'} font-medium`}
                 />
               </div>
             </div>

@@ -36,19 +36,17 @@ BEGIN
 
   -- Process phone number if provided
   IF p_phone IS NOT NULL AND p_phone != '' THEN
-    -- Remove all non-digits (handles XXX-XXX-XXXX format from frontend)
+    -- Keep the formatted phone as-is from frontend (XXX-XXX-XXXX)
+    -- Just validate it has 10 digits
     phone_digits := regexp_replace(p_phone, '[^0-9]', '', 'g');
 
-    -- Check if it's 10 digits (US number)
-    IF length(phone_digits) = 10 THEN
-      -- Format as international: +1 prefix for US numbers
-      formatted_phone := '+1' || phone_digits;
-    ELSIF length(phone_digits) = 11 AND substring(phone_digits, 1, 1) = '1' THEN
-      -- Already has country code
-      formatted_phone := '+' || phone_digits;
-    ELSE
+    -- Check if it's 10 digits
+    IF length(phone_digits) != 10 THEN
       RETURN json_build_object('success', false, 'error', 'Phone must be 10 digits');
     END IF;
+
+    -- Store the phone as provided (with dashes)
+    formatted_phone := p_phone;
   ELSE
     formatted_phone := NULL;
   END IF;
@@ -63,7 +61,7 @@ BEGIN
     END,
     phone = CASE
       WHEN p_phone = '' THEN NULL
-      ELSE formatted_phone  -- Use the formatted phone with +1
+      ELSE formatted_phone  -- Keep the phone format as provided (XXX-XXX-XXXX)
     END,
     -- DO NOT UPDATE secret_code! It would double-hash and corrupt it
     proficiencies = COALESCE(p_proficiencies, ARRAY[]::text[]),
@@ -92,7 +90,7 @@ GRANT EXECUTE ON FUNCTION public.update_profile_info(uuid, varchar, varchar, var
 GRANT EXECUTE ON FUNCTION public.update_profile_info(uuid, varchar, varchar, varchar, text[]) TO service_role;
 
 -- Add helpful comment
-COMMENT ON FUNCTION public.update_profile_info IS 'Updates user profile (email, phone, skills). Ignores secret_code to prevent corruption. Formats US phone numbers to international format.';
+COMMENT ON FUNCTION public.update_profile_info IS 'Updates user profile (email, phone, skills). Ignores secret_code to prevent corruption. Validates phone has 10 digits but keeps original formatting.';
 
 -- Verify the function was created
 DO $$

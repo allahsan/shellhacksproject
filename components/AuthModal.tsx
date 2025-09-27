@@ -451,7 +451,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                             setSignupData({ ...signupData, phone: formatted })
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-                          placeholder="571-842-2187"
+                          placeholder="305-555-0189"
                           maxLength={12}
                           required
                         />

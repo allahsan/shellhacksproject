@@ -134,6 +134,49 @@ $$;
 ALTER FUNCTION "public"."cast_vote"("p_voter_id" "uuid", "p_team_id" "uuid", "p_candidate_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."change_secret_code"("p_profile_id" "uuid", "p_old_code" character varying, "p_new_code" character varying) RETURNS json
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  -- Validate new code length
+  IF length(p_new_code) < 6 THEN
+    RETURN json_build_object('success', false, 'error', 'Secret code must be at least 6 characters');
+  END IF;
+
+  -- Verify old code matches (compare hashed versions)
+  IF NOT EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = p_profile_id
+    AND secret_code = encode(digest(p_old_code, 'sha256'), 'hex')
+  ) THEN
+    RETURN json_build_object('success', false, 'error', 'Current secret code is incorrect');
+  END IF;
+
+  -- Update to new code (hash it)
+  UPDATE profiles
+  SET
+    secret_code = encode(digest(p_new_code, 'sha256'), 'hex'),
+    updated_at = NOW()
+  WHERE id = p_profile_id;
+
+  RETURN json_build_object('success', true, 'message', 'Secret code changed successfully');
+
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE WARNING 'Error in change_secret_code: %', SQLERRM;
+    RETURN json_build_object('success', false, 'error', 'An error occurred while changing secret code');
+END;
+$$;
+
+
+ALTER FUNCTION "public"."change_secret_code"("p_profile_id" "uuid", "p_old_code" character varying, "p_new_code" character varying) OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."change_secret_code"("p_profile_id" "uuid", "p_old_code" character varying, "p_new_code" character varying) IS 'Securely changes user secret code with proper validation and hashing.';
+
+
+
 CREATE OR REPLACE FUNCTION "public"."check_voting_complete"("p_team_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql"
     AS $$
@@ -198,30 +241,76 @@ DECLARE
     v_team_id UUID;
     v_team_name VARCHAR;
 BEGIN
-    -- Create the team
+    -- Check if leader already has a team
+    IF EXISTS (
+        SELECT 1 FROM teams WHERE leader_id = p_leader_id
+    ) THEN
+        RAISE EXCEPTION 'You are already leading a team';
+    END IF;
+
+    -- Check if user is already in a team
+    IF EXISTS (
+        SELECT 1 FROM team_members
+        WHERE profile_id = p_leader_id
+        AND status = 'active'
+    ) THEN
+        RAISE EXCEPTION 'You are already in a team';
+    END IF;
+
+    -- Check if team name already exists
+    IF EXISTS (
+        SELECT 1 FROM teams WHERE LOWER(name) = LOWER(p_name)
+    ) THEN
+        RAISE EXCEPTION 'A team with this name already exists';
+    END IF;
+
+    -- Create the team (only use columns that actually exist)
     INSERT INTO teams (
-        leader_id, name, description, project_description,
-        skills_needed, tech_stack, looking_for_roles,
-        min_members, max_members, status
+        leader_id,
+        name,
+        description,
+        looking_for_roles,
+        tech_stack,
+        min_members,
+        max_members,
+        status
     ) VALUES (
-        p_leader_id, p_name, p_description, p_project_description,
-        p_skills_needed, p_tech_stack, p_looking_for_roles,
-        p_min_members, p_max_members, 'recruiting'
+        p_leader_id,
+        p_name,
+        p_description,
+        COALESCE(p_looking_for_roles, ARRAY[]::TEXT[]),
+        COALESCE(p_tech_stack, ARRAY[]::TEXT[]),
+        p_min_members,
+        p_max_members,
+        'recruiting'
     )
     RETURNING id, name INTO v_team_id, v_team_name;
 
-    -- Add leader to team_members with correct status and presence
+    -- Add leader to team_members
     INSERT INTO team_members (
-        team_id, profile_id, role, joined_at, status, presence
+        team_id,
+        profile_id,
+        role,
+        joined_at,
+        status,
+        presence
     ) VALUES (
-        v_team_id, p_leader_id, 'leader', NOW(), 'active', 'online'
+        v_team_id,
+        p_leader_id,
+        'leader',
+        NOW(),
+        'active',
+        'online'
     );
 
     -- Update profile
     UPDATE profiles
-    SET current_team_id = v_team_id, profile_type = 'leader'
+    SET
+        current_team_id = v_team_id,
+        profile_type = 'leader'
     WHERE id = p_leader_id;
 
+    -- Return JSON object like the existing function does
     RETURN json_build_object(
         'success', true,
         'team_id', v_team_id,
@@ -1117,6 +1206,32 @@ BEGIN
     )
     WHERE id = p_team_id;
 
+    -- Update the new leader's role in team_members
+    UPDATE team_members
+    SET role = 'leader'
+    WHERE team_id = p_team_id
+      AND profile_id = (
+        SELECT leader_id FROM teams WHERE id = p_team_id
+      );
+
+    -- Update the new leader's profile
+    UPDATE profiles
+    SET profile_type = 'leader'
+    WHERE id = (
+      SELECT leader_id FROM teams WHERE id = p_team_id
+    );
+
+    -- Notify the new leader
+    INSERT INTO notifications (profile_id, type, title, message, team_id, priority)
+    VALUES (
+      (SELECT leader_id FROM teams WHERE id = p_team_id),
+      'promoted_to_leader',
+      '👑 You are now the team leader!',
+      'You have been automatically promoted to team leader.',
+      p_team_id,
+      'high'
+    );
+
     RETURN json_build_object('success', true, 'action', 'auto_promoted');
   END IF;
 
@@ -1132,17 +1247,19 @@ BEGIN
   SELECT
     profile_id,
     'voting_started',
-    'Leader Election Started!',
+    '🗳️ Leader Election Started!',
     'Team leader left. Vote for new leader within 5 minutes!',
     p_team_id,
     'urgent'
   FROM team_members
-  WHERE team_id = p_team_id AND status = 'active' AND profile_id != p_leaving_leader_id;
+  WHERE team_id = p_team_id
+    AND status = 'active'
+    AND profile_id != p_leaving_leader_id;
 
-  -- Remove leaving leader
-  UPDATE team_members
-  SET status = 'removed'
-  WHERE team_id = p_team_id AND profile_id = p_leaving_leader_id;
+  -- Remove leaving leader from team_members
+  DELETE FROM team_members
+  WHERE team_id = p_team_id
+    AND profile_id = p_leaving_leader_id;
 
   RETURN json_build_object('success', true, 'action', 'voting_started');
 END;
@@ -1158,43 +1275,124 @@ CREATE OR REPLACE FUNCTION "public"."leave_team"("p_profile_id" "uuid", "p_team_
 DECLARE
     v_member_count INTEGER;
     v_team RECORD;
+    v_voting_result json;
 BEGIN
     -- Get team info
     SELECT * INTO v_team FROM teams WHERE id = p_team_id;
 
-    -- Check if user is team leader
-    IF v_team.leader_id = p_profile_id THEN
+    IF NOT FOUND THEN
         RETURN json_build_object(
             'success', false,
-            'error', 'Leader cannot leave team. Transfer leadership first.'
+            'error', 'Team not found'
         );
     END IF;
 
-    -- DELETE the member record (not UPDATE)
-    DELETE FROM team_members
-    WHERE team_id = p_team_id AND profile_id = p_profile_id;
+    -- Check if user is actually in the team OR is the leader
+    IF NOT EXISTS (
+        SELECT 1 FROM team_members
+        WHERE team_id = p_team_id
+        AND profile_id = p_profile_id
+    ) AND v_team.leader_id != p_profile_id THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'You are not a member of this team'
+        );
+    END IF;
 
-    -- Update profile
-    UPDATE profiles
-    SET current_team_id = NULL, profile_type = 'looking'
-    WHERE id = p_profile_id;
+    -- Check if user is team leader
+    IF v_team.leader_id = p_profile_id THEN
+        -- Leader is leaving - count other active members
+        SELECT COUNT(*) INTO v_member_count
+        FROM team_members
+        WHERE team_id = p_team_id
+        AND status = 'active'
+        AND profile_id != p_profile_id;
 
-    -- Get updated member count
-    SELECT COUNT(*) INTO v_member_count
-    FROM team_members
-    WHERE team_id = p_team_id;
+        IF v_member_count = 0 THEN
+            -- Leader is the only member - delete the team and all related data
 
-    -- Update team status automatically
-    UPDATE teams
-    SET status = CASE
-        WHEN v_member_count >= max_members THEN 'full'
-        WHEN v_member_count > 0 THEN 'recruiting'
-        ELSE 'closed'
-    END,
-    updated_at = NOW()
-    WHERE id = p_team_id;
+            -- Delete all related records first (to handle foreign key constraints)
+            DELETE FROM join_requests WHERE team_id = p_team_id;
+            DELETE FROM notifications WHERE team_id = p_team_id;
+            DELETE FROM team_posts WHERE team_id = p_team_id;
+            DELETE FROM leader_votes WHERE team_id = p_team_id;
+            DELETE FROM team_members WHERE team_id = p_team_id;
 
-    RETURN json_build_object('success', true);
+            -- Now delete the team itself
+            DELETE FROM teams WHERE id = p_team_id;
+
+            -- Update leader's profile
+            UPDATE profiles
+            SET
+                current_team_id = NULL,
+                profile_type = 'looking'
+            WHERE id = p_profile_id;
+
+            RETURN json_build_object(
+                'success', true,
+                'action', 'team_disbanded',
+                'message', 'Team has been disbanded as you were the only member'
+            );
+        ELSE
+            -- There are other members - initiate voting or auto-promote
+            SELECT initiate_leader_voting(p_team_id, p_profile_id) INTO v_voting_result;
+
+            -- Update leader's profile
+            UPDATE profiles
+            SET
+                current_team_id = NULL,
+                profile_type = 'looking'
+            WHERE id = p_profile_id;
+
+            RETURN json_build_object(
+                'success', true,
+                'action', 'leadership_transfer',
+                'voting_result', v_voting_result
+            );
+        END IF;
+    ELSE
+        -- Regular member leaving
+        DELETE FROM team_members
+        WHERE team_id = p_team_id AND profile_id = p_profile_id;
+
+        -- Update profile to set as looking for team
+        UPDATE profiles
+        SET
+            current_team_id = NULL,
+            profile_type = 'looking'
+        WHERE id = p_profile_id;
+
+        -- Get updated member count
+        SELECT COUNT(*) INTO v_member_count
+        FROM team_members
+        WHERE team_id = p_team_id
+        AND status = 'active';
+
+        -- Update team status automatically based on member count
+        UPDATE teams
+        SET
+            status = CASE
+                WHEN v_member_count >= max_members THEN 'full'
+                WHEN v_member_count > 0 THEN 'recruiting'
+                ELSE 'closed'
+            END,
+            updated_at = NOW()
+        WHERE id = p_team_id;
+
+        -- Create notification for team leader
+        INSERT INTO notifications (
+            profile_id, type, title, message, team_id, priority
+        ) VALUES (
+            v_team.leader_id,
+            'member_left',
+            'Member Left Team',
+            (SELECT name FROM profiles WHERE id = p_profile_id) || ' has left the team',
+            p_team_id,
+            'normal'
+        );
+
+        RETURN json_build_object('success', true, 'action', 'member_left');
+    END IF;
 END;
 $$;
 
@@ -1503,14 +1701,20 @@ BEGIN
             responded_at = NOW()
         WHERE id = p_request_id;
 
+        -- FIX: Count withdrawn requests first, then update them (correct syntax)
+        SELECT COUNT(*) INTO v_withdrawn_count
+        FROM join_requests
+        WHERE profile_id = v_request.profile_id
+          AND team_id != v_request.team_id
+          AND status = 'pending';
+
         -- AUTO-WITHDRAW: Withdraw all other pending requests from this user
         UPDATE join_requests
         SET status = 'withdrawn',
             withdrawn_at = NOW()
         WHERE profile_id = v_request.profile_id
           AND team_id != v_request.team_id
-          AND status = 'pending'
-        RETURNING COUNT(*) INTO v_withdrawn_count;
+          AND status = 'pending';
 
         -- Create notification for the accepted user
         INSERT INTO notifications (
@@ -1723,6 +1927,86 @@ $$;
 
 
 ALTER FUNCTION "public"."update_presence"("p_profile_id" "uuid", "p_team_id" "uuid", "p_status" character varying) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_profile_info"("p_profile_id" "uuid", "p_email" character varying, "p_phone" character varying, "p_secret_code" character varying, "p_proficiencies" "text"[]) RETURNS json
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $_$
+DECLARE
+  phone_digits VARCHAR(20);
+  formatted_phone VARCHAR(20);
+BEGIN
+  -- Validate that the profile exists
+  IF NOT EXISTS (SELECT 1 FROM profiles WHERE id = p_profile_id) THEN
+    RETURN json_build_object('success', false, 'error', 'Profile not found');
+  END IF;
+
+  -- Validate email format if provided
+  IF p_email IS NOT NULL AND p_email != '' THEN
+    IF NOT p_email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$' THEN
+      RETURN json_build_object('success', false, 'error', 'Invalid email format');
+    END IF;
+  END IF;
+
+  -- Process phone number if provided
+  IF p_phone IS NOT NULL AND p_phone != '' THEN
+    -- Remove all non-digits (handles XXX-XXX-XXXX format from frontend)
+    phone_digits := regexp_replace(p_phone, '[^0-9]', '', 'g');
+
+    -- Check if it's 10 digits (US number)
+    IF length(phone_digits) = 10 THEN
+      -- Format as international: +1 prefix for US numbers
+      formatted_phone := '+1' || phone_digits;
+    ELSIF length(phone_digits) = 11 AND substring(phone_digits, 1, 1) = '1' THEN
+      -- Already has country code
+      formatted_phone := '+' || phone_digits;
+    ELSE
+      RETURN json_build_object('success', false, 'error', 'Phone must be 10 digits');
+    END IF;
+  ELSE
+    formatted_phone := NULL;
+  END IF;
+
+  -- IMPORTANT: We do NOT update secret_code here!
+  -- The frontend sends the already-hashed value which would corrupt the password
+  UPDATE profiles
+  SET
+    email = CASE
+      WHEN p_email = '' THEN NULL
+      ELSE p_email
+    END,
+    phone = CASE
+      WHEN p_phone = '' THEN NULL
+      ELSE formatted_phone  -- Use the formatted phone with +1
+    END,
+    -- DO NOT UPDATE secret_code! It would double-hash and corrupt it
+    proficiencies = COALESCE(p_proficiencies, ARRAY[]::text[]),
+    updated_at = NOW()
+  WHERE id = p_profile_id;
+
+  -- Check if update was successful
+  IF NOT FOUND THEN
+    RETURN json_build_object('success', false, 'error', 'Failed to update profile');
+  END IF;
+
+  -- Return success
+  RETURN json_build_object('success', true, 'message', 'Profile updated successfully');
+
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Log the error for debugging
+    RAISE WARNING 'Error in update_profile_info: %', SQLERRM;
+    RETURN json_build_object('success', false, 'error', 'Database error: ' || SQLERRM);
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."update_profile_info"("p_profile_id" "uuid", "p_email" character varying, "p_phone" character varying, "p_secret_code" character varying, "p_proficiencies" "text"[]) OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."update_profile_info"("p_profile_id" "uuid", "p_email" character varying, "p_phone" character varying, "p_secret_code" character varying, "p_proficiencies" "text"[]) IS 'Updates user profile (email, phone, skills). Ignores secret_code to prevent corruption. Formats US phone numbers to international format.';
+
 
 
 CREATE OR REPLACE FUNCTION "public"."update_secret_code"("p_profile_id" "uuid", "p_current_code" "text", "p_new_code" "text") RETURNS boolean
@@ -2776,6 +3060,12 @@ GRANT ALL ON FUNCTION "public"."cast_vote"("p_voter_id" "uuid", "p_team_id" "uui
 
 
 
+GRANT ALL ON FUNCTION "public"."change_secret_code"("p_profile_id" "uuid", "p_old_code" character varying, "p_new_code" character varying) TO "anon";
+GRANT ALL ON FUNCTION "public"."change_secret_code"("p_profile_id" "uuid", "p_old_code" character varying, "p_new_code" character varying) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."change_secret_code"("p_profile_id" "uuid", "p_old_code" character varying, "p_new_code" character varying) TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."check_voting_complete"("p_team_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."check_voting_complete"("p_team_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."check_voting_complete"("p_team_id" "uuid") TO "service_role";
@@ -2935,6 +3225,12 @@ GRANT ALL ON FUNCTION "public"."update_comment_count"() TO "service_role";
 GRANT ALL ON FUNCTION "public"."update_presence"("p_profile_id" "uuid", "p_team_id" "uuid", "p_status" character varying) TO "anon";
 GRANT ALL ON FUNCTION "public"."update_presence"("p_profile_id" "uuid", "p_team_id" "uuid", "p_status" character varying) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_presence"("p_profile_id" "uuid", "p_team_id" "uuid", "p_status" character varying) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_profile_info"("p_profile_id" "uuid", "p_email" character varying, "p_phone" character varying, "p_secret_code" character varying, "p_proficiencies" "text"[]) TO "anon";
+GRANT ALL ON FUNCTION "public"."update_profile_info"("p_profile_id" "uuid", "p_email" character varying, "p_phone" character varying, "p_secret_code" character varying, "p_proficiencies" "text"[]) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_profile_info"("p_profile_id" "uuid", "p_email" character varying, "p_phone" character varying, "p_secret_code" character varying, "p_proficiencies" "text"[]) TO "service_role";
 
 
 

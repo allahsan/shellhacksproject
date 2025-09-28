@@ -8,7 +8,7 @@
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
   [![Supabase](https://img.shields.io/badge/Supabase-Realtime-green?logo=supabase)](https://supabase.com/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
-  [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+  [![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
   <p align="center">
     <strong>Built at ShellHack 2024</strong> |
@@ -240,7 +240,11 @@ Built with ❤️ at **ShellHack 2024** by passionate developers who believe in 
 
 ## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is protected under a Proprietary License - see the [LICENSE](LICENSE) file for details.
+
+**© 2024 TeamDock - All Rights Reserved**
+
+This software is proprietary and confidential. Unauthorized copying, use, or distribution of this software is strictly prohibited.
 
 ## 🙏 Acknowledgments
 

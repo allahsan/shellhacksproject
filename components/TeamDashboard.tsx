@@ -68,6 +68,8 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
     proficiencies: [] as string[]
   })
   const [saving, setSaving] = useState(false)
+  const [lastSaveTime, setLastSaveTime] = useState(0)
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     loadTeamData()
@@ -94,6 +96,28 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
     } catch (error) {
       console.error('Error loading profile:', error)
     }
+  }
+
+  // Security: Input sanitization
+  const sanitizeInput = (text: string): string => {
+    // Remove SQL injection attempts
+    let cleaned = text.replace(/[';"\\]/g, '')
+    // Remove script tags and HTML
+    cleaned = cleaned.replace(/<script[^>]*>.*?<\/script>/gi, '')
+    cleaned = cleaned.replace(/<[^>]+>/g, '')
+    // Remove excessive whitespace
+    cleaned = cleaned.replace(/\s+/g, ' ').trim()
+    return cleaned
+  }
+
+  // Security: Check for malicious patterns
+  const containsMaliciousPattern = (text: string): boolean => {
+    const maliciousPatterns = [
+      /(<script|javascript:|onclick|onerror|onload)/gi,
+      /(union\s+select|drop\s+table|insert\s+into|delete\s+from)/gi,
+      /(\\x[0-9a-f]{2}|\\u[0-9a-f]{4})/gi, // hex/unicode injection
+    ]
+    return maliciousPatterns.some(pattern => pattern.test(text))
   }
 
   // Format phone number as user types
@@ -124,40 +148,72 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
   }
 
   const handleSaveProfile = async () => {
+    // Clear previous errors
+    setSaveError('')
+
+    // Rate limiting: 5 seconds between saves
+    const now = Date.now()
+    if (now - lastSaveTime < 5000) {
+      const secondsLeft = Math.ceil((5000 - (now - lastSaveTime)) / 1000)
+      setSaveError(`⏰ Please wait ${secondsLeft} seconds before saving again`)
+      return
+    }
+
     // Check if phone number is missing
     if (!profileForm.phone || profileForm.phone.trim() === '') {
-      alert('📱 Please add your phone number so your team can reach you! This helps with quick coordination during the hackathon.')
+      setSaveError('📱 Hey! Add your phone number so your team can reach you during the hackathon! It really helps with coordination 🤝')
       return
     }
 
     // Validate phone number format
     if (!validatePhone(profileForm.phone)) {
-      alert('📱 Please enter a valid 10-digit phone number (e.g., 571-842-2187)')
+      setSaveError('📱 Almost there! Please enter a complete 10-digit phone number (like 571-842-2187)')
       return
     }
 
     // Validate email if provided
     if (profileForm.email && !validateEmail(profileForm.email)) {
-      alert('📧 Please enter a valid email address')
+      setSaveError('📧 Oops! That email format doesn\'t look right. Try something like name@example.com')
+      return
+    }
+
+    // Security: Check for malicious input
+    if (containsMaliciousPattern(profileForm.email) ||
+        containsMaliciousPattern(profileForm.secret_code)) {
+      setSaveError('⚠️ Hold up! We detected some unusual characters. Please use only standard text.')
+      return
+    }
+
+    // Security: Validate secret code length
+    if (profileForm.secret_code && profileForm.secret_code.length > 50) {
+      setSaveError('🔐 Your secret code is too long! Keep it under 50 characters please.')
       return
     }
 
     setSaving(true)
     try {
+      // Sanitize inputs before saving
+      const sanitizedEmail = sanitizeInput(profileForm.email)
+      const sanitizedSecretCode = sanitizeInput(profileForm.secret_code)
+
       const { error } = await supabase
         .from('profiles')
         .update({
-          email: profileForm.email,
-          phone: profileForm.phone,
-          secret_code: profileForm.secret_code,
-          proficiencies: profileForm.proficiencies
+          email: sanitizedEmail,
+          phone: profileForm.phone, // Already validated
+          secret_code: sanitizedSecretCode,
+          proficiencies: profileForm.proficiencies.slice(0, 20) // Limit skills
         })
         .eq('id', profileId)
 
       if (!error) {
+        setLastSaveTime(Date.now())
         setEditingProfile(false)
+        setSaveError('')
         loadUserProfile()
         playSuccessSound()
+      } else {
+        setSaveError('😔 Something went wrong. Please try again!')
       }
     } catch (error) {
       console.error('Error saving profile:', error)
@@ -290,7 +346,10 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
           <h2 className="text-2xl font-black text-gray-900">👤 My Profile</h2>
           {!editingProfile ? (
             <button
-              onClick={() => setEditingProfile(true)}
+              onClick={() => {
+                setEditingProfile(true)
+                setSaveError('')
+              }}
               className="px-4 py-2 bg-amber-500 text-white font-black border-2 border-black hover:bg-amber-600 transition-colors"
             >
               EDIT PROFILE
@@ -298,7 +357,10 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
           ) : (
             <div className="flex gap-2">
               <button
-                onClick={() => setEditingProfile(false)}
+                onClick={() => {
+                  setEditingProfile(false)
+                  setSaveError('')
+                }}
                 className="px-4 py-2 bg-gray-500 text-white font-black border-2 border-black hover:bg-gray-600 transition-colors"
               >
                 CANCEL
@@ -313,6 +375,13 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
             </div>
           )}
         </div>
+
+        {/* Error Message */}
+        {saveError && editingProfile && (
+          <div className="mb-4 p-3 bg-amber-50 border-2 border-amber-400 rounded-lg">
+            <p className="text-sm font-bold text-amber-800">{saveError}</p>
+          </div>
+        )}
 
         {userProfile && (
           <div className="space-y-4">
@@ -336,9 +405,19 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
                 <input
                   type="email"
                   value={profileForm.email}
-                  onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
+                  onChange={(e) => {
+                    const value = e.target.value.slice(0, 100) // Limit length
+                    setProfileForm({...profileForm, email: value})
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault()
+                    const pastedText = e.clipboardData.getData('text/plain')
+                    const sanitized = sanitizeInput(pastedText.slice(0, 100))
+                    setProfileForm({...profileForm, email: sanitized})
+                  }}
                   disabled={!editingProfile}
                   placeholder="your.email@example.com"
+                  maxLength={100}
                   className={`w-full px-3 py-2 border-2 ${
                     editingProfile
                       ? profileForm.email && !validateEmail(profileForm.email)
@@ -353,10 +432,12 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
                   Phone <span className="text-red-500">*</span>
                   {editingProfile && (
                     !profileForm.phone ? (
-                      <span className="text-xs text-amber-600 ml-2">Required for team coordination</span>
+                      <span className="text-xs text-amber-600 ml-2">Teams need this to reach you! 🤝</span>
                     ) : !validatePhone(profileForm.phone) ? (
                       <span className="text-xs text-red-500 ml-2">Must be 10 digits</span>
-                    ) : null
+                    ) : (
+                      <span className="text-xs text-green-600 ml-2">✓ Perfect!</span>
+                    )
                   )}
                 </label>
                 <input
@@ -385,9 +466,19 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
                 <input
                   type="password"
                   value={profileForm.secret_code}
-                  onChange={(e) => setProfileForm({...profileForm, secret_code: e.target.value})}
+                  onChange={(e) => {
+                    const value = e.target.value.slice(0, 50) // Limit length
+                    setProfileForm({...profileForm, secret_code: value})
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault()
+                    const pastedText = e.clipboardData.getData('text/plain')
+                    const sanitized = sanitizeInput(pastedText.slice(0, 50))
+                    setProfileForm({...profileForm, secret_code: sanitized})
+                  }}
                   disabled={!editingProfile}
                   placeholder={editingProfile ? "Enter new code" : "••••••••"}
+                  maxLength={50}
                   className={`w-full px-3 py-2 border-2 ${editingProfile ? 'border-black' : 'border-gray-300 bg-gray-100'} font-medium`}
                 />
               </div>
@@ -404,7 +495,7 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
                         const skills = profileForm.proficiencies || []
                         if (skills.includes(skill)) {
                           setProfileForm({...profileForm, proficiencies: skills.filter(s => s !== skill)})
-                        } else {
+                        } else if (skills.length < 20) { // Limit to 20 skills
                           setProfileForm({...profileForm, proficiencies: [...skills, skill]})
                         }
                       }

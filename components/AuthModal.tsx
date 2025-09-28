@@ -17,6 +17,8 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState<'credentials' | 'profile'>('credentials')
+  const [lastAttempt, setLastAttempt] = useState(0)
+  const [attemptCount, setAttemptCount] = useState(0)
 
   // Login data
   const [loginData, setLoginData] = useState({
@@ -40,19 +42,76 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
     'Cloud', 'Security', 'Game Dev', 'AR/VR', 'IoT', 'Pitch'
   ]
 
+  // Security: Input sanitization
+  const sanitizeInput = (text: string): string => {
+    // Remove SQL injection attempts
+    let cleaned = text.replace(/[';"\\]/g, '')
+    // Remove script tags and HTML
+    cleaned = cleaned.replace(/<script[^>]*>.*?<\/script>/gi, '')
+    cleaned = cleaned.replace(/<[^>]+>/g, '')
+    // Remove excessive whitespace
+    cleaned = cleaned.replace(/\s+/g, ' ').trim()
+    return cleaned
+  }
+
+  // Security: Validate email
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  // Security: Format phone
+  const formatPhone = (value: string): string => {
+    const phoneNumber = value.replace(/\D/g, '')
+    if (phoneNumber.length <= 3) {
+      return phoneNumber
+    } else if (phoneNumber.length <= 6) {
+      return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3)}`
+    } else {
+      return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`
+    }
+  }
+
   const handleLogin = async () => {
+    // Rate limiting: 3 seconds between attempts
+    const now = Date.now()
+    if (now - lastAttempt < 3000) {
+      const secondsLeft = Math.ceil((3000 - (now - lastAttempt)) / 1000)
+      setError(`Please wait ${secondsLeft} seconds before trying again`)
+      return
+    }
+
+    // Max 5 attempts per minute
+    if (attemptCount >= 5) {
+      setError('Too many attempts. Please wait a minute.')
+      setTimeout(() => setAttemptCount(0), 60000)
+      return
+    }
+
     if (!loginData.identifier || !loginData.secretCode) {
       setError('Please enter your name/email and secret code')
       return
     }
 
+    // Security: Validate inputs
+    if (loginData.identifier.length > 100 || loginData.secretCode.length > 50) {
+      setError('Invalid input length')
+      return
+    }
+
     setLoading(true)
     setError('')
+    setLastAttempt(now)
+    setAttemptCount(prev => prev + 1)
 
     try {
+      // Sanitize inputs
+      const sanitizedIdentifier = sanitizeInput(loginData.identifier)
+      const sanitizedCode = sanitizeInput(loginData.secretCode)
+
       const { data: profile, error: authError } = await (supabase.rpc as any)('authenticate_user', {
-        p_identifier: loginData.identifier,
-        p_secret_code: loginData.secretCode
+        p_identifier: sanitizedIdentifier,
+        p_secret_code: sanitizedCode
       })
 
       if (authError) throw authError
@@ -87,8 +146,23 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
 
   const handleSignup = async () => {
     if (step === 'credentials') {
+      // Rate limiting
+      const now = Date.now()
+      if (now - lastAttempt < 3000) {
+        const secondsLeft = Math.ceil((3000 - (now - lastAttempt)) / 1000)
+        setError(`Please wait ${secondsLeft} seconds`)
+        return
+      }
+
       if (!signupData.name || !signupData.email || !signupData.phone || !signupData.secretCode || !signupData.confirmCode) {
         setError('Please fill in all required fields')
+        return
+      }
+
+      // Security: Length validation
+      if (signupData.name.length > 100 || signupData.email.length > 100 ||
+          signupData.phone.length > 20 || signupData.secretCode.length > 12) {
+        setError('Input exceeds maximum length')
         return
       }
 
@@ -107,11 +181,20 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
         return
       }
 
-      // Basic email validation
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupData.email)) {
+      // Email validation
+      if (!validateEmail(signupData.email)) {
         setError('Please enter a valid email address')
         return
       }
+
+      // Phone validation (10 digits)
+      const phoneDigits = signupData.phone.replace(/\D/g, '')
+      if (phoneDigits.length !== 10) {
+        setError('Phone number must be 10 digits')
+        return
+      }
+
+      setLastAttempt(now)
 
       setError('')
       setStep('profile')
@@ -128,12 +211,18 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
     setError('')
 
     try {
+      // Sanitize all inputs
+      const sanitizedName = sanitizeInput(signupData.name)
+      const sanitizedEmail = sanitizeInput(signupData.email)
+      const sanitizedPhone = signupData.phone.replace(/\D/g, '') // Keep only digits
+      const sanitizedCode = sanitizeInput(signupData.secretCode)
+
       const { data: profileId, error: profileError } = await (supabase.rpc as any)('create_profile', {
-        p_name: signupData.name,
-        p_email: signupData.email,
-        p_phone: signupData.phone,
-        p_secret_code: signupData.secretCode,
-        p_proficiencies: signupData.skills
+        p_name: sanitizedName,
+        p_email: sanitizedEmail,
+        p_phone: sanitizedPhone,
+        p_secret_code: sanitizedCode,
+        p_proficiencies: signupData.skills.slice(0, 20) // Limit skills
       })
 
       if (profileError) throw profileError
@@ -159,7 +248,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
       ...prev,
       skills: prev.skills.includes(skill)
         ? prev.skills.filter(s => s !== skill)
-        : [...prev.skills, skill]
+        : prev.skills.length < 20 ? [...prev.skills, skill] : prev.skills // Max 20 skills
     }))
   }
 
@@ -238,9 +327,15 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                     <input
                       type="text"
                       value={loginData.identifier}
-                      onChange={(e) => setLoginData({ ...loginData, identifier: e.target.value })}
+                      onChange={(e) => setLoginData({ ...loginData, identifier: e.target.value.slice(0, 100) })}
+                      onPaste={(e) => {
+                        e.preventDefault()
+                        const pasted = e.clipboardData.getData('text/plain')
+                        setLoginData({ ...loginData, identifier: sanitizeInput(pasted.slice(0, 100)) })
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
                       placeholder="Enter your name or email"
+                      maxLength={100}
                     />
                   </div>
 
@@ -251,7 +346,10 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                     <input
                       type="password"
                       value={loginData.secretCode}
-                      onChange={(e) => setLoginData({ ...loginData, secretCode: e.target.value })}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 12)
+                        setLoginData({ ...loginData, secretCode: value })
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
                       placeholder="Enter your 6-12 digit code"
                       maxLength={12}
@@ -309,9 +407,15 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                         <input
                           type="text"
                           value={signupData.name}
-                          onChange={(e) => setSignupData({ ...signupData, name: e.target.value })}
+                          onChange={(e) => setSignupData({ ...signupData, name: e.target.value.slice(0, 100) })}
+                          onPaste={(e) => {
+                            e.preventDefault()
+                            const pasted = e.clipboardData.getData('text/plain')
+                            setSignupData({ ...signupData, name: sanitizeInput(pasted.slice(0, 100)) })
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
                           placeholder="Your full name"
+                          maxLength={100}
                         />
                       </div>
 
@@ -322,9 +426,15 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                         <input
                           type="email"
                           value={signupData.email}
-                          onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
+                          onChange={(e) => setSignupData({ ...signupData, email: e.target.value.slice(0, 100) })}
+                          onPaste={(e) => {
+                            e.preventDefault()
+                            const pasted = e.clipboardData.getData('text/plain')
+                            setSignupData({ ...signupData, email: sanitizeInput(pasted.slice(0, 100)) })
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
                           placeholder="your@email.com"
+                          maxLength={100}
                           required
                         />
                       </div>
@@ -336,9 +446,13 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                         <input
                           type="tel"
                           value={signupData.phone}
-                          onChange={(e) => setSignupData({ ...signupData, phone: e.target.value })}
+                          onChange={(e) => {
+                            const formatted = formatPhone(e.target.value)
+                            setSignupData({ ...signupData, phone: formatted })
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-                          placeholder="(123) 456-7890"
+                          placeholder="571-842-2187"
+                          maxLength={12}
                           required
                         />
                       </div>
@@ -350,7 +464,10 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                         <input
                           type="password"
                           value={signupData.secretCode}
-                          onChange={(e) => setSignupData({ ...signupData, secretCode: e.target.value })}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '').slice(0, 12)
+                            setSignupData({ ...signupData, secretCode: value })
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
                           placeholder="Enter 6-12 digit code"
                           maxLength={12}
@@ -364,7 +481,10 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                         <input
                           type="password"
                           value={signupData.confirmCode}
-                          onChange={(e) => setSignupData({ ...signupData, confirmCode: e.target.value })}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '').slice(0, 12)
+                            setSignupData({ ...signupData, confirmCode: value })
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
                           placeholder="Re-enter your code"
                           maxLength={12}

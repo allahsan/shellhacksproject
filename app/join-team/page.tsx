@@ -154,7 +154,7 @@ export default function JoinTeamPage() {
 
       // Submit join request
       const { data, error } = await (supabase.rpc as any)('request_to_join', {
-        p_requester_id: profileId,
+        p_profile_id: profileId,
         p_team_id: selectedTeam?.id,
         p_requested_role: authData.requestedRole,
         p_message: authData.requestMessage || null

@@ -141,7 +141,7 @@ export default function AuthModal({ isOpen, onClose, mode: initialMode }: AuthMo
         if (teamMember) {
           router.push('/manage-team')
         } else {
-          router.push('/join-team')
+          router.push('/?view=browse-teams')
         }
         onClose()
       } else {
@@ -242,8 +242,8 @@ export default function AuthModal({ isOpen, onClose, mode: initialMode }: AuthMo
         sessionStorage.setItem('teamdock_profile_id', profileId)
         sessionStorage.setItem('teamdock_user_name', signupData.name)
 
-        // Redirect to join or create team
-        router.push('/join-team')
+        // Redirect to browse teams
+        router.push('/?view=browse-teams')
         onClose()
       }
     } catch (err: any) {

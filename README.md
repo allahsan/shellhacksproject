@@ -11,7 +11,7 @@
   [![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
   <p align="center">
-    <strong>Built at ShellHack 2024</strong> |
+    <strong>Built at ShellHack 2025</strong> |
     <a href="#demo">View Demo</a> •
     <a href="#features">Features</a> •
     <a href="#tech-stack">Tech Stack</a> •

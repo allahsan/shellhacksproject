@@ -6,7 +6,12 @@
       "Bash(git add:*)",
       "Bash(del tailwind.config.js)",
       "Bash(npm run dev:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(for table in activities join_requests leader_votes notifications post_comments post_likes profiles team_members team_posts teams)",
+      "Bash(do echo -n \"$table: \")",
+      "Bash(grep:*)",
+      "Bash(done)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

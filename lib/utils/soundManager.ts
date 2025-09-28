@@ -10,7 +10,7 @@ interface SoundConfig {
 
 class SoundManager {
   private sounds: Map<SoundType, Howl>
-  private enabled: boolean = true
+  private enabled: boolean = false // Disabled by default until sound files are added
   private globalVolume: number = 0.5
 
   constructor() {
@@ -23,6 +23,9 @@ class SoundManager {
   }
 
   private loadSounds() {
+    // Skip loading sounds until files are available
+    return;
+
     const soundConfigs: Record<SoundType, SoundConfig> = {
       notification: {
         src: ['/sounds/notification.mp3', '/sounds/notification.ogg'],

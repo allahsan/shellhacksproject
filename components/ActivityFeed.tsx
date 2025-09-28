@@ -47,7 +47,7 @@ export default function ActivityFeed({
         .limit(limit)
 
       if (!error && data) {
-        setActivities(data)
+        setActivities(data as any)
       }
     } catch (error) {
       console.error('Error loading activities:', error)

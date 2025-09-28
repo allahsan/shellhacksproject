@@ -127,9 +127,11 @@ function ManageTeamPageContent() {
 
   useEffect(() => {
     // Check if already authenticated
-    const storedProfileId = sessionStorage.getItem('profileId')
-    if (storedProfileId) {
+    const storedProfileId = sessionStorage.getItem('teamdock_profile_id')
+    const storedUserName = sessionStorage.getItem('teamdock_user_name')
+    if (storedProfileId && storedUserName) {
       setProfileId(storedProfileId)
+      setUserName(storedUserName)
       setAuthModal(false)
       loadTeamData(storedProfileId)
     } else {
@@ -166,8 +168,11 @@ function ManageTeamPageContent() {
 
       if (data && data.success) {
         const profileId = data.profile.id
-        sessionStorage.setItem('profileId', profileId)
+        const profileName = data.profile.name
+        sessionStorage.setItem('teamdock_profile_id', profileId)
+        sessionStorage.setItem('teamdock_user_name', profileName)
         setProfileId(profileId)
+        setUserName(profileName)
         setAuthModal(false)
         await loadTeamData(profileId)
       } else {
@@ -215,12 +220,27 @@ function ManageTeamPageContent() {
           .single()
 
         if (teamError || !teamData) {
-          // No team found
+          // Check if user has a pending request before redirecting
+          const { data: pendingRequest } = await supabase
+            .from('join_requests')
+            .select('id, team_id, status')
+            .eq('profile_id', userId)
+            .eq('status', 'pending')
+            .single()
+
+          if (pendingRequest) {
+            // User has a pending request, redirect to status page
+            sessionStorage.setItem('hasPendingRequest', 'true')
+            router.push('/request-status')
+            return
+          }
+
+          // No team and no pending request, redirect home
           router.push('/')
           return
         }
 
-        setTeam(teamData)
+        setTeam(teamData as Team)
         setIsLeader(true)
         // Populate team update form
         setTeamUpdateData({
@@ -639,43 +659,85 @@ function ManageTeamPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50">
-      {/* Site Header */}
-      <header className="bg-black text-white border-b-4 border-amber-500">
-        <div className="container mx-auto px-4 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex">
+      {/* Left Sidebar - Matching Home Page */}
+      <aside className="w-64 bg-black text-white h-screen sticky top-0 flex flex-col border-r-4 border-amber-500">
+        {/* Logo */}
+        <div className="p-4 border-b-2 border-amber-500/30">
+          <Link href="/" className="block">
+            <h1 className="text-3xl font-black hover:text-amber-400 transition-colors">
+              TEAMDOCK
+            </h1>
+            <p className="text-xs text-amber-400 mt-1">Hackathon Team Formation</p>
+          </Link>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-1">
+          <Link
+            href="/"
+            className="flex items-center gap-3 px-3 py-2 rounded hover:bg-amber-500/20 transition-colors text-gray-300 hover:text-amber-400 font-medium"
+          >
+            <span>🏠</span>
+            <span className="text-sm">Home</span>
+          </Link>
+
+          <Link
+            href="/manage-team"
+            className="flex items-center gap-3 px-3 py-2 rounded bg-amber-500/20 text-amber-400 font-medium"
+          >
+            <span>👥</span>
+            <span className="text-sm">Team Dashboard</span>
+          </Link>
+
+          <div className="pt-4 mt-4 border-t border-amber-500/30">
+            <p className="px-3 text-xs text-amber-400 uppercase tracking-wider mb-2 font-bold">Teams</p>
+
+            <Link
+              href="/join-team"
+              className="flex items-center gap-3 px-3 py-2 rounded hover:bg-amber-500/20 transition-colors text-gray-300 hover:text-amber-400 font-medium"
+            >
+              <span>🤝</span>
+              <span className="text-sm">Browse Teams</span>
+            </Link>
+
+            <Link
+              href="/start-team"
+              className="flex items-center gap-3 px-3 py-2 rounded hover:bg-amber-500/20 transition-colors text-gray-300 hover:text-amber-400 font-medium"
+            >
+              <span>✨</span>
+              <span className="text-sm">Create Team</span>
+            </Link>
+          </div>
+        </nav>
+
+        {/* Profile Section */}
+        <div className="p-4 border-t border-amber-500/30">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-amber-500 rounded flex items-center justify-center text-black font-black">
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1">
+              <p className="text-white text-sm font-bold">{userName}</p>
+              <p className="text-amber-400 text-xs">Team Leader</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full py-2 px-3 bg-white text-black font-bold border-2 border-white hover:bg-gray-100 text-sm rounded transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header Bar */}
+        <header className="bg-white border-b-2 border-black px-6 py-4 shadow-hard">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h1 className="text-xl sm:text-2xl font-black">
-                {team.name} <span className="text-amber-500 mx-2">|</span>
-                <span className="font-medium text-base sm:text-lg">Welcome back, {userName}</span>
-              </h1>
-              {profileId && (
-                <UserStatus
-                  profileId={profileId}
-                  compact={true}
-                  showLabel={true}
-                />
-              )}
-            </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-white text-black font-bold border-2 border-white hover:bg-gray-100 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-8">
-        {/* Team Info */}
-        <div className="mb-8">
-          <div className="bg-white border-2 border-black p-6 shadow-hard">
-            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Project Description</h2>
-            <p className="text-gray-800 text-lg font-medium mb-4">
-              {team.description}
-            </p>
-            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-black text-black">{team.name}</h2>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                 team.status === 'recruiting' || team.status === 'forming' ? 'bg-green-100 text-green-700' :
                 team.status === 'locked' || team.status === 'closed' ? 'bg-yellow-100 text-yellow-700' :
@@ -689,15 +751,41 @@ function ManageTeamPageContent() {
               </span>
               <div className="flex items-center text-sm text-green-600">
                 <span className="animate-pulse mr-2 h-2 w-2 bg-green-500 rounded-full"></span>
-                Real-time Updates Active
+                <span className="font-medium">Real-time Updates</span>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          <button
+            {/* ShellHack Branding */}
+            <div className="flex items-center gap-3">
+              <span className="text-2xl font-black text-black">SHELLHACKS</span>
+              <span className="text-amber-500 font-black">2025</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="container mx-auto px-6 py-6">
+            {/* Team Info */}
+            <div className="mb-8">
+              <div className="bg-white border-2 border-black p-6 shadow-hard">
+                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Project Description</h2>
+                <p className="text-gray-800 text-lg font-medium mb-4">
+                  {team.description}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {team.tech_stack.map((tech) => (
+                    <span key={tech} className="px-3 py-1 bg-amber-100 text-amber-700 rounded text-sm font-medium">
+                      {tech}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 mb-6">
+              <button
             onClick={() => handleTabChange('members')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'members'
@@ -1239,6 +1327,8 @@ function ManageTeamPageContent() {
             </div>
           )}
         </motion.div>
+          </div>
+        </main>
       </div>
 
       {/* Voting Modal */}

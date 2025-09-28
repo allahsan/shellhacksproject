@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import DiscordButton from './DiscordButton'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -215,6 +216,21 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
 
               {mode === 'login' ? (
                 <div className="space-y-4">
+                  {/* Discord Login Button */}
+                  <DiscordButton
+                    text="Login with Discord"
+                    className="mb-2"
+                  />
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Name or Email
@@ -272,6 +288,20 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                 <>
                   {step === 'credentials' ? (
                     <div className="space-y-4">
+                      {/* Discord Signup Button */}
+                      <DiscordButton
+                        text="Sign up with Discord"
+                        className="mb-2"
+                      />
+
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                          <span className="px-2 bg-white text-gray-500">Or sign up manually</span>
+                        </div>
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Name *

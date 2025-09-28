@@ -22,9 +22,11 @@ type Team = {
 
 interface JoinTeamViewProps {
   currentUser: { id: string; name: string } | null
+  isTeamLeader?: boolean
+  userTeam?: { id: string; name: string } | null
 }
 
-export default function JoinTeamView({ currentUser }: JoinTeamViewProps) {
+export default function JoinTeamView({ currentUser, isTeamLeader = false, userTeam = null }: JoinTeamViewProps) {
   const [teams, setTeams] = useState<Team[]>([])
   const [filteredTeams, setFilteredTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
@@ -143,9 +145,10 @@ export default function JoinTeamView({ currentUser }: JoinTeamViewProps) {
     }
 
     try {
-      const { data, error } = await (supabase.rpc as any)('request_to_join_team', {
+      const { data, error } = await (supabase.rpc as any)('request_to_join', {
         p_profile_id: currentUser.id,
         p_team_id: teamId,
+        p_requested_role: 'member',
         p_message: 'I would like to join your team!'
       })
 
@@ -364,17 +367,6 @@ export default function JoinTeamView({ currentUser }: JoinTeamViewProps) {
                         : (team.member_count || 0)
                     } members
                   </div>
-                  {team.status === 'recruiting' && currentUser && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleJoinRequest(team.id)
-                      }}
-                      className="px-3 py-1 bg-green-500 text-white text-xs font-black rounded hover:bg-green-600 transition-colors"
-                    >
-                      REQUEST TO JOIN
-                    </button>
-                  )}
                 </div>
               </div>
             </motion.div>
@@ -392,6 +384,7 @@ export default function JoinTeamView({ currentUser }: JoinTeamViewProps) {
           }}
           team={selectedTeam}
           currentUserId={currentUser?.id}
+          userHasTeam={!!userTeam}
         />
       )}
     </motion.div>

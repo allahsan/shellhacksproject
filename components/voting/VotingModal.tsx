@@ -20,6 +20,7 @@ type Candidate = {
   name: string
   role: string
   proficiencies: string[]
+  presence?: 'online' | 'away' | 'busy' | 'offline'
 }
 
 type VoteStatus = {
@@ -82,6 +83,7 @@ export default function VotingModal({
       .select(`
         profile_id,
         role,
+        presence,
         profile:profiles!inner(
           id,
           name,
@@ -96,7 +98,8 @@ export default function VotingModal({
         id: m.profile_id,
         name: m.profile.name,
         role: m.role,
-        proficiencies: m.profile.proficiencies
+        proficiencies: m.profile.proficiencies,
+        presence: m.presence
       })))
     }
   }

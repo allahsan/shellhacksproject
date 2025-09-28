@@ -7,6 +7,9 @@ import TeamFeed from '@/components/TeamFeed'
 import TeamDashboard from '@/components/TeamDashboard'
 import PostCreationModal from '@/components/PostCreationModal'
 import JoinTeamView from '@/components/JoinTeamView'
+import JoinRequestsView from '@/components/JoinRequestsView'
+import ManageTeam from '@/components/ManageTeam'
+import CreateTeamView from '@/components/CreateTeamView'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Database } from '@/types/supabase'
@@ -20,17 +23,20 @@ function HomePageContent() {
   const [activeTeamsCount, setActiveTeamsCount] = useState(0)
   const [totalMembers, setTotalMembers] = useState(0)
   const [showAuthForm, setShowAuthForm] = useState<'login' | 'signup' | null>(null)
+  const [authStep, setAuthStep] = useState<'credentials' | 'profile'>('credentials')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [statisticsData, setStatisticsData] = useState<HackathonStatistics | null>(null)
   const [liveActivityFeed, setLiveActivityFeed] = useState<ActivityFeedItem[]>([])
   const [skillSupplyDemand, setSkillSupplyDemand] = useState<SkillSupplyDemand | null>(null)
   const [loadingStats, setLoadingStats] = useState(false)
   const [refreshingActivities, setRefreshingActivities] = useState(false)
-  const [authStep, setAuthStep] = useState<'credentials' | 'profile'>('credentials')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null)
   const [userTeam, setUserTeam] = useState<{ id: string; name: string } | null>(null)
-  const [currentView, setCurrentView] = useState<'home' | 'team-dashboard' | 'browse-teams' | 'create-team' | 'statistics'>('home')
+  const [isTeamLeader, setIsTeamLeader] = useState(false)
+  const [teamStatus, setTeamStatus] = useState<string>('')
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
+  const [currentView, setCurrentView] = useState<'home' | 'profile' | 'browse-teams' | 'create-team' | 'statistics' | 'join-requests' | 'manage-team'>('home')
   const [showPostModal, setShowPostModal] = useState(false)
   const [hackathonProgress, setHackathonProgress] = useState<{ timeRemaining: string; percentage: number }>({ timeRemaining: '', percentage: 0 })
   const [flipText, setFlipText] = useState(true)
@@ -59,22 +65,43 @@ function HomePageContent() {
 
   useEffect(() => {
     setMounted(true)
-    // Check if user has a pending request
-    const pending = sessionStorage.getItem('hasPendingRequest')
-    setHasPendingRequest(pending === 'true')
 
-    // Check if user is logged in
-    const profileId = sessionStorage.getItem('teamdock_profile_id')
-    const userName = sessionStorage.getItem('teamdock_user_name')
-    if (profileId && userName) {
-      setCurrentUser({ id: profileId, name: userName })
-      // Check if user has a team
-      checkUserTeam(profileId)
+    // Check for Discord auth callback
+    const discordAuth = searchParams.get('discord_auth')
+    const discordProfileId = searchParams.get('profile_id')
+    const discordUsername = searchParams.get('username')
+
+    if (discordAuth === 'success' && discordProfileId && discordUsername) {
+      // Save Discord auth to session
+      sessionStorage.setItem('teamdock_profile_id', discordProfileId)
+      sessionStorage.setItem('teamdock_user_name', discordUsername)
+      setCurrentUser({ id: discordProfileId, name: discordUsername })
+      checkUserTeam(discordProfileId)
+
+      // Clean URL
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.delete('discord_auth')
+      newUrl.searchParams.delete('profile_id')
+      newUrl.searchParams.delete('username')
+      window.history.replaceState({}, '', newUrl.toString())
+    } else {
+      // Check if user has a pending request
+      const pending = sessionStorage.getItem('hasPendingRequest')
+      setHasPendingRequest(pending === 'true')
+
+      // Check if user is logged in
+      const profileId = sessionStorage.getItem('teamdock_profile_id')
+      const userName = sessionStorage.getItem('teamdock_user_name')
+      if (profileId && userName) {
+        setCurrentUser({ id: profileId, name: userName })
+        // Check if user has a team
+        checkUserTeam(profileId)
+      }
     }
 
     // Check URL parameters for view
     const view = searchParams.get('view')
-    if (view && ['home', 'team-dashboard', 'browse-teams', 'create-team', 'statistics'].includes(view)) {
+    if (view && ['home', 'profile', 'browse-teams', 'create-team', 'statistics', 'join-requests', 'manage-team'].includes(view)) {
       setCurrentView(view as any)
     }
 
@@ -207,20 +234,74 @@ function HomePageContent() {
 
   const checkUserTeam = async (profileId: string) => {
     try {
+      // Check if user is a member of a team (with active status)
       const { data: memberData } = await supabase
         .from('team_members')
-        .select('team:teams(id, name)')
+        .select('team_id')
         .eq('profile_id', profileId)
         .eq('status', 'active')
         .single()
 
-      if (memberData && memberData.team) {
-        setUserTeam(memberData.team as any)
+      if (memberData && memberData.team_id) {
+        // Now get the team details
+        const { data: teamData } = await supabase
+          .from('teams')
+          .select('id, name, status, leader_id')
+          .eq('id', memberData.team_id)
+          .single()
+
+        if (teamData) {
+          console.log('Setting userTeam with:', { id: teamData.id, name: teamData.name })
+          setUserTeam({ id: teamData.id, name: teamData.name })
+          setTeamStatus(teamData.status || '')
+          setIsTeamLeader(teamData.leader_id === profileId)
+
+          // If user is a leader, get pending requests count
+          if (teamData.leader_id === profileId) {
+            const { count } = await supabase
+              .from('join_requests')
+              .select('*', { count: 'exact', head: true })
+              .eq('team_id', teamData.id)
+            .eq('status', 'pending')
+
+            setPendingRequestsCount(count || 0)
+            console.log('Pending requests count for team:', teamData.id, count)
+          }
+        }
       } else {
-        setUserTeam(null)
+        // Check if user is a leader without being a member
+        const { data: teamData } = await supabase
+          .from('teams')
+          .select('id, name, status')
+          .eq('leader_id', profileId)
+          .single()
+
+        if (teamData) {
+          setUserTeam({ id: teamData.id, name: teamData.name })
+          setTeamStatus(teamData.status || '')
+          setIsTeamLeader(true)
+
+          // Get pending requests count
+          const { count } = await supabase
+            .from('join_requests')
+            .select('*', { count: 'exact', head: true })
+            .eq('team_id', teamData.id)
+            .eq('status', 'pending')
+
+          setPendingRequestsCount(count || 0)
+          console.log('Pending requests count for leader team:', teamData.id, count)
+        } else {
+          setUserTeam(null)
+          setIsTeamLeader(false)
+          setTeamStatus('')
+          setPendingRequestsCount(0)
+        }
       }
     } catch (error) {
       setUserTeam(null)
+      setIsTeamLeader(false)
+      setTeamStatus('')
+      setPendingRequestsCount(0)
     }
   }
 
@@ -230,13 +311,12 @@ function HomePageContent() {
       const { count: teamsCount } = await supabase
         .from('teams')
         .select('*', { count: 'exact', head: true })
-        .in('status', ['recruiting', 'forming', 'locked'])
+        .in('status', ['recruiting', 'full', 'closed'])
 
       // Get total members count
       const { count: membersCount } = await supabase
         .from('team_members')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
 
       setActiveTeamsCount(teamsCount || 0)
       setTotalMembers(membersCount || 0)
@@ -389,6 +469,15 @@ function HomePageContent() {
     }
   }
 
+  const toggleSkill = (skill: string) => {
+    setSignupData(prev => ({
+      ...prev,
+      skills: prev.skills.includes(skill)
+        ? prev.skills.filter(s => s !== skill)
+        : [...prev.skills, skill]
+    }))
+  }
+
   const handleSignup = async () => {
     if (authStep === 'credentials') {
       if (!signupData.name || !signupData.email || !signupData.phone || !signupData.secretCode || !signupData.confirmCode) {
@@ -467,15 +556,6 @@ function HomePageContent() {
     }
   }
 
-  const toggleSkill = (skill: string) => {
-    setSignupData(prev => ({
-      ...prev,
-      skills: prev.skills.includes(skill)
-        ? prev.skills.filter(s => s !== skill)
-        : [...prev.skills, skill]
-    }))
-  }
-
   if (!mounted) return null
 
   return (
@@ -523,6 +603,20 @@ function HomePageContent() {
             <span className="text-sm">Statistics</span>
           </button>
 
+          {/* My Profile - User Profile Management */}
+          {currentUser && (
+            <button
+              onClick={() => {
+                router.push('/?view=profile')
+                setCurrentView('profile')
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium hover:bg-amber-500/20 text-gray-300 hover:text-amber-400"
+            >
+              <span>👤</span>
+              <span className="text-sm">My Profile</span>
+            </button>
+          )}
+
           {hasPendingRequest && (
             <Link
               href="/request-status"
@@ -536,39 +630,40 @@ function HomePageContent() {
           <div className="pt-4 mt-4 border-t border-amber-500/30">
             <p className="px-3 text-xs text-amber-400 uppercase tracking-wider mb-2 font-bold">Teams</p>
 
-            <button
-              onClick={() => {
-                router.push('/?view=browse-teams')
-                setCurrentView('browse-teams')
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
-                currentView === 'browse-teams'
-                  ? 'bg-amber-500/20 text-amber-400'
-                  : 'hover:bg-amber-500/20 text-gray-300 hover:text-amber-400'
-              }`}
-            >
-              <span>🤝</span>
-              <span className="text-sm">Browse Teams</span>
-            </button>
-
             {currentUser && (
               <>
                 <button
                   onClick={() => {
-                    router.push('/?view=team-dashboard')
-                    setCurrentView('team-dashboard')
+                    router.push('/?view=browse-teams')
+                    setCurrentView('browse-teams')
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
-                    currentView === 'team-dashboard'
+                    currentView === 'browse-teams'
                       ? 'bg-amber-500/20 text-amber-400'
                       : 'hover:bg-amber-500/20 text-gray-300 hover:text-amber-400'
                   }`}
                 >
-                  <span>👥</span>
-                  <span className="text-sm">{userTeam ? 'Team Dashboard' : 'My Dashboard'}</span>
+                  <span>🤝</span>
+                  <span className="text-sm">Browse Teams</span>
                 </button>
 
-                {!userTeam && (
+                {/* Show Manage/View Team for team members, Create Team for users without teams */}
+                {userTeam ? (
+                  <button
+                    onClick={() => {
+                      router.push('/?view=manage-team')
+                      setCurrentView('manage-team')
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
+                      currentView === 'manage-team'
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'hover:bg-amber-500/20 text-gray-300 hover:text-amber-400'
+                    }`}
+                  >
+                    <span>{isTeamLeader ? '⚙️' : '👁️'}</span>
+                    <span className="text-sm">{isTeamLeader ? 'Manage Team' : 'View Team'}</span>
+                  </button>
+                ) : (
                   <button
                     onClick={() => {
                       router.push('/?view=create-team')
@@ -584,7 +679,47 @@ function HomePageContent() {
                     <span className="text-sm">Create Team</span>
                   </button>
                 )}
+
+                {/* Join Requests - visible for team leaders until team is full */}
+                {isTeamLeader && teamStatus !== 'full' && teamStatus !== 'closed' && (
+                  <button
+                    onClick={() => {
+                      router.push('/?view=join-requests')
+                      setCurrentView('join-requests')
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium relative ${
+                      currentView === 'join-requests'
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'hover:bg-amber-500/20 text-gray-300 hover:text-amber-400'
+                    }`}
+                  >
+                    <span>📋</span>
+                    <span className="text-sm">Join Requests</span>
+                    {pendingRequestsCount > 0 && (
+                      <span className="absolute right-3 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                        {pendingRequestsCount}
+                      </span>
+                    )}
+                  </button>
+                )}
               </>
+            )}
+
+            {!currentUser && (
+              <button
+                onClick={() => {
+                  router.push('/?view=browse-teams')
+                  setCurrentView('browse-teams')
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium ${
+                  currentView === 'browse-teams'
+                    ? 'bg-amber-500/20 text-amber-400'
+                    : 'hover:bg-amber-500/20 text-gray-300 hover:text-amber-400'
+                }`}
+              >
+                <span>🤝</span>
+                <span className="text-sm">Browse Teams</span>
+              </button>
             )}
           </div>
         </nav>
@@ -692,6 +827,24 @@ function HomePageContent() {
 
                 {showAuthForm === 'login' ? (
                   <>
+                    {/* Discord Login Button */}
+                    <button
+                      onClick={() => window.location.href = '/api/auth/discord'}
+                      className="w-full flex items-center justify-center gap-2 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded text-sm transition-colors"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.157 2.419 0 1.3332-.9555 2.4189-2.1571 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1569 2.419 0 1.3332-.9554 2.4189-2.1569 2.4189Z"/>
+                      </svg>
+                      Login with Discord
+                    </button>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-700"></div>
+                      </div>
+                      <div className="relative flex justify-center text-xs">
+                        <span className="px-2 bg-black text-gray-500">or</span>
+                      </div>
+                    </div>
                     <input
                       type="text"
                       value={loginData.identifier}
@@ -719,6 +872,24 @@ function HomePageContent() {
                   <>
                     {authStep === 'credentials' ? (
                       <>
+                        {/* Discord Signup Button */}
+                        <button
+                          onClick={() => window.location.href = '/api/auth/discord'}
+                          className="w-full flex items-center justify-center gap-2 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded text-sm transition-colors"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.157 2.419 0 1.3332-.9555 2.4189-2.1571 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1569 2.419 0 1.3332-.9554 2.4189-2.1569 2.4189Z"/>
+                          </svg>
+                          Sign up with Discord
+                        </button>
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-700"></div>
+                          </div>
+                          <div className="relative flex justify-center text-xs">
+                            <span className="px-2 bg-black text-gray-500">or</span>
+                          </div>
+                        </div>
                         <input
                           type="text"
                           value={signupData.name}
@@ -815,10 +986,12 @@ function HomePageContent() {
             <div className="flex items-center gap-4">
               <h2 className="text-xl font-black text-black">
                 {currentView === 'home' && 'THE SCROLL'}
+                {currentView === 'profile' && 'MY PROFILE'}
                 {currentView === 'statistics' && 'STATISTICS'}
-                {currentView === 'team-dashboard' && 'TEAM DASHBOARD'}
                 {currentView === 'browse-teams' && 'BROWSE TEAMS'}
                 {currentView === 'create-team' && 'CREATE TEAM'}
+                {currentView === 'join-requests' && 'JOIN REQUESTS'}
+                {currentView === 'manage-team' && 'MANAGE TEAM'}
               </h2>
               <div className="flex items-center text-sm text-amber-600">
                 <span className="animate-pulse mr-2 h-2 w-2 bg-amber-500 rounded-full"></span>
@@ -908,9 +1081,9 @@ function HomePageContent() {
                 </motion.div>
               )}
 
-              {currentView === 'team-dashboard' && currentUser && (
+              {currentView === 'profile' && currentUser && (
                 <motion.div
-                  key="team-dashboard"
+                  key="profile"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
@@ -921,20 +1094,63 @@ function HomePageContent() {
               )}
 
               {currentView === 'browse-teams' && (
-                <JoinTeamView currentUser={currentUser} />
+                <JoinTeamView currentUser={currentUser} isTeamLeader={isTeamLeader} userTeam={userTeam} />
               )}
 
               {currentView === 'create-team' && currentUser && (
+                <CreateTeamView
+                  profileId={currentUser.id}
+                  profileName={currentUser.name}
+                  onTeamCreated={() => {
+                    // Refresh user data after team creation
+                    const checkUserTeam = async () => {
+                      const { data: memberData } = await supabase
+                        .from('team_members')
+                        .select('team_id, teams(id, name, leader_id)')
+                        .eq('profile_id', currentUser.id)
+                        .single()
+
+                      if (memberData?.teams) {
+                        setUserTeam(memberData.teams as any)
+                        setIsTeamLeader(memberData.teams.leader_id === currentUser.id)
+                        setCurrentView('manage-team')
+                      }
+                    }
+                    checkUserTeam()
+                  }}
+                />
+              )}
+
+              {currentView === 'join-requests' && currentUser && userTeam && isTeamLeader && (
                 <motion.div
-                  key="create-team"
+                  key="join-requests"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-white border-2 border-black p-8 shadow-hard"
                 >
-                  <h2 className="text-2xl font-black mb-4">Create a Team</h2>
-                  <p className="text-gray-600">Team creation form will be loaded here.</p>
+                  <JoinRequestsView
+                    profileId={currentUser.id}
+                    teamId={userTeam.id || ''}
+                    teamName={userTeam.name || 'Your Team'}
+                    isLeader={isTeamLeader}
+                  />
+                </motion.div>
+              )}
+
+              {currentView === 'manage-team' && currentUser && userTeam && (
+                <motion.div
+                  key="manage-team"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ManageTeam
+                    profileId={currentUser.id}
+                    teamId={userTeam.id || ''}
+                    isLeader={isTeamLeader}
+                  />
                 </motion.div>
               )}
 
@@ -1324,6 +1540,7 @@ function HomePageContent() {
           }}
         />
       )}
+
 
     </div>
   )

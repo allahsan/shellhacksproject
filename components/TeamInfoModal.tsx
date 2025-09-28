@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase/client'
-import Link from 'next/link'
 
 type TeamMember = {
   id: string
   role: string
+  presence?: 'online' | 'away' | 'busy' | 'offline'
   profile: {
     name: string
     proficiencies: string[]
@@ -28,18 +28,27 @@ interface TeamInfoModalProps {
   onClose: () => void
   team: Team
   currentUserId?: string
+  userHasTeam?: boolean
 }
 
-export default function TeamInfoModal({ isOpen, onClose, team, currentUserId }: TeamInfoModalProps) {
+export default function TeamInfoModal({ isOpen, onClose, team, currentUserId, userHasTeam = false }: TeamInfoModalProps) {
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(true)
   const [recentPosts, setRecentPosts] = useState<any[]>([])
+  const [requestSending, setRequestSending] = useState(false)
+  const [hasPendingRequest, setHasPendingRequest] = useState(false)
+  const [showRoleSelection, setShowRoleSelection] = useState(false)
+  const [selectedRole, setSelectedRole] = useState<string>('')
 
   useEffect(() => {
     if (isOpen && team) {
       loadTeamDetails()
+      if (currentUserId) {
+        checkPendingRequest()
+      }
+      setSelectedRole(team.looking_for_roles?.[0] || 'Team Member')
     }
-  }, [isOpen, team])
+  }, [isOpen, team, currentUserId])
 
   const loadTeamDetails = async () => {
     setLoadingMembers(true)
@@ -50,13 +59,13 @@ export default function TeamInfoModal({ isOpen, onClose, team, currentUserId }: 
         .select(`
           id,
           role,
+          presence,
           profile:profiles(
             name,
             proficiencies
           )
         `)
         .eq('team_id', team.id)
-        .eq('status', 'active')
 
       if (membersData) {
         setMembers(membersData as any)
@@ -77,6 +86,89 @@ export default function TeamInfoModal({ isOpen, onClose, team, currentUserId }: 
       console.error('Error loading team details:', error)
     } finally {
       setLoadingMembers(false)
+    }
+  }
+
+  const checkPendingRequest = async () => {
+    if (!currentUserId) return
+
+    try {
+      // Check only for pending requests, not rejected or withdrawn
+      const { data, error } = await supabase
+        .from('join_requests')
+        .select('id, status')
+        .eq('profile_id', currentUserId)
+        .eq('team_id', team.id)
+        .eq('status', 'pending')  // Only check pending, allows re-applying after rejection
+        .single()
+
+      setHasPendingRequest(!!data && !error)
+    } catch (error) {
+      // No pending request found
+      setHasPendingRequest(false)
+    }
+  }
+
+  const handleJoinTeam = async () => {
+    if (!currentUserId) {
+      console.log('Please login to join a team!')
+      return
+    }
+
+    setRequestSending(true)
+    try {
+      const { data, error } = await (supabase.rpc as any)('request_to_join', {
+        p_profile_id: currentUserId,
+        p_team_id: team.id,
+        p_requested_role: selectedRole,
+        p_message: null
+      })
+
+      if (error) throw error
+
+      if (data?.success) {
+        console.log('Request sent successfully to', team.name)
+        setHasPendingRequest(true)
+        setShowRoleSelection(false)
+      } else {
+        console.error('Failed to send request:', data?.error || 'Unknown error')
+      }
+    } catch (error) {
+      console.error('Error joining team:', error)
+    } finally {
+      setRequestSending(false)
+    }
+  }
+
+  const handleWithdrawRequest = async () => {
+    if (!currentUserId) return
+
+    setRequestSending(true)
+    try {
+      // Find and withdraw the pending request
+      const { data: request } = await supabase
+        .from('join_requests')
+        .select('id')
+        .eq('profile_id', currentUserId)
+        .eq('team_id', team.id)
+        .eq('status', 'pending')
+        .single()
+
+      if (request) {
+        const { error } = await supabase
+          .from('join_requests')
+          .update({ status: 'withdrawn' })
+          .eq('id', request.id)
+
+        if (!error) {
+          console.log('Request withdrawn successfully')
+          setHasPendingRequest(false)
+        }
+      }
+    } catch (error) {
+      console.error('Error withdrawing request:', error)
+    } finally {
+      setRequestSending(false)
     }
   }
 
@@ -245,15 +337,34 @@ export default function TeamInfoModal({ isOpen, onClose, team, currentUserId }: 
                 </div>
               )}
 
+              {/* Show message if user already has a team */}
+              {userHasTeam && currentUserId && isRecruiting && (
+                <div className="mt-3 p-3 bg-amber-50 border-2 border-amber-500 rounded">
+                  <p className="text-sm font-bold text-amber-800">
+                    ⚠️ You're already in a team! Leave your current team to join this one.
+                  </p>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="flex gap-2 pt-3 pb-2 border-t border-gray-300">
-                {isRecruiting && openRoles.length > 0 && currentUserId && (
-                  <Link
-                    href="/join-team"
-                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-black text-center py-2 px-4 border-2 border-black font-bold text-sm transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_rgba(0,0,0,1)]"
-                  >
-                    JOIN TEAM 🚀
-                  </Link>
+                {isRecruiting && openRoles.length > 0 && currentUserId && !userHasTeam && (
+                  hasPendingRequest ? (
+                    <button
+                      onClick={handleWithdrawRequest}
+                      disabled={requestSending}
+                      className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white text-center py-2 px-4 border-2 border-black font-bold text-sm transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_rgba(0,0,0,1)] disabled:opacity-50"
+                    >
+                      {requestSending ? 'WITHDRAWING...' : 'WITHDRAW REQUEST ✋'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowRoleSelection(true)}
+                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-black text-center py-2 px-4 border-2 border-black font-bold text-sm transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_rgba(0,0,0,1)]"
+                    >
+                      JOIN TEAM 🚀
+                    </button>
+                  )
                 )}
                 <button
                   onClick={onClose}
@@ -262,6 +373,50 @@ export default function TeamInfoModal({ isOpen, onClose, team, currentUserId }: 
                   CLOSE
                 </button>
               </div>
+
+              {/* Role Selection Dialog - Overlay within modal */}
+              {showRoleSelection && (
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-lg">
+                  <div className="bg-white border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] p-3 max-w-xs w-11/12 max-h-64">
+                    <h3 className="text-base font-black text-gray-900 mb-2">Pick Your Role</h3>
+
+                    <div className="space-y-1.5 mb-3 max-h-32 overflow-y-auto pr-1">
+                      {team.looking_for_roles.map((role) => (
+                        <label
+                          key={role}
+                          className="flex items-center p-1.5 border border-gray-300 hover:bg-amber-50 cursor-pointer text-sm"
+                        >
+                          <input
+                            type="radio"
+                            name="modal-role"
+                            value={role}
+                            checked={selectedRole === role}
+                            onChange={(e) => setSelectedRole(e.target.value)}
+                            className="mr-2 w-3 h-3"
+                          />
+                          <span className="font-medium text-gray-900">{role}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowRoleSelection(false)}
+                        className="flex-1 py-1 px-2 bg-gray-200 hover:bg-gray-300 text-black font-bold border border-black text-xs"
+                      >
+                        CANCEL
+                      </button>
+                      <button
+                        onClick={handleJoinTeam}
+                        disabled={requestSending}
+                        className="flex-1 py-1 px-2 bg-green-500 hover:bg-green-600 text-white font-bold border border-black text-xs disabled:opacity-50"
+                      >
+                        {requestSending ? 'SENDING...' : 'SEND'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         </>

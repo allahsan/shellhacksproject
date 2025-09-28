@@ -34,11 +34,18 @@ export default function BrowseTeams({ currentUser }: BrowseTeamsProps) {
   const [showTeamModal, setShowTeamModal] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | 'recruiting' | 'closed' | 'full'>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [pendingRequests, setPendingRequests] = useState<string[]>([])
+  const [showRoleModal, setShowRoleModal] = useState(false)
+  const [selectedTeamForJoin, setSelectedTeamForJoin] = useState<Team | null>(null)
+  const [selectedRole, setSelectedRole] = useState<string>('')
 
   useEffect(() => {
     loadTeams()
+    if (currentUser) {
+      loadPendingRequests()
+    }
     setupRealtimeSubscription()
-  }, [])
+  }, [currentUser])
 
   const loadTeams = async () => {
     try {
@@ -71,6 +78,25 @@ export default function BrowseTeams({ currentUser }: BrowseTeamsProps) {
     }
   }
 
+  const loadPendingRequests = async () => {
+    if (!currentUser) return
+
+    try {
+      // Only get PENDING requests, not rejected or withdrawn ones
+      const { data, error } = await supabase
+        .from('join_requests')
+        .select('team_id, status')
+        .eq('profile_id', currentUser.id)
+        .in('status', ['pending'])  // Only pending, not rejected/withdrawn
+
+      if (data && !error) {
+        setPendingRequests(data.map(r => r.team_id))
+      }
+    } catch (error) {
+      console.error('Error loading pending requests:', error)
+    }
+  }
+
   const setupRealtimeSubscription = () => {
     const channel = supabase
       .channel('teams-browse')
@@ -95,29 +121,69 @@ export default function BrowseTeams({ currentUser }: BrowseTeamsProps) {
     }
   }
 
-  const handleJoinTeam = async (teamId: string) => {
-    if (!currentUser) {
-      alert('Please login to join a team!')
+  const openRoleSelection = (team: Team) => {
+    setSelectedTeamForJoin(team)
+    setSelectedRole(team.looking_for_roles?.[0] || 'Team Member')
+    setShowRoleModal(true)
+  }
+
+  const handleJoinTeam = async () => {
+    if (!currentUser || !selectedTeamForJoin) {
+      console.log('Please login to join a team!')
       return
     }
 
     try {
-      const { data, error } = await (supabase.rpc as any)('request_to_join_team', {
+      const { data, error } = await (supabase.rpc as any)('request_to_join', {
         p_profile_id: currentUser.id,
-        p_team_id: teamId
+        p_team_id: selectedTeamForJoin.id,
+        p_requested_role: selectedRole,
+        p_message: null
       })
 
       if (error) throw error
 
-      if (data.success) {
-        alert('Request sent successfully!')
-        loadTeams()
+      if (data?.success) {
+        console.log('Request sent successfully to', selectedTeamForJoin.name)
+        setPendingRequests([...pendingRequests, selectedTeamForJoin.id])
+        setShowRoleModal(false)
+        setSelectedTeamForJoin(null)
+        loadPendingRequests()
       } else {
-        alert(data.error || 'Failed to send request')
+        console.error('Failed to send request:', data?.error || 'Unknown error')
       }
     } catch (error) {
       console.error('Error joining team:', error)
-      alert('Failed to send join request')
+    }
+  }
+
+  const handleWithdrawRequest = async (teamId: string) => {
+    if (!currentUser) return
+
+    try {
+      // Find and delete the pending request
+      const { data: request } = await supabase
+        .from('join_requests')
+        .select('id')
+        .eq('profile_id', currentUser.id)
+        .eq('team_id', teamId)
+        .eq('status', 'pending')
+        .single()
+
+      if (request) {
+        const { error } = await supabase
+          .from('join_requests')
+          .update({ status: 'withdrawn' })
+          .eq('id', request.id)
+
+        if (!error) {
+          console.log('Request withdrawn successfully')
+          setPendingRequests(pendingRequests.filter(id => id !== teamId))
+          loadPendingRequests()
+        }
+      }
+    } catch (error) {
+      console.error('Error withdrawing request:', error)
     }
   }
 
@@ -313,15 +379,15 @@ export default function BrowseTeams({ currentUser }: BrowseTeamsProps) {
                             : (team.member_count || 0)
                         } members
                       </div>
-                      {team.status === 'recruiting' && currentUser && (
+                      {team.status === 'recruiting' && currentUser && pendingRequests.includes(team.id) && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleJoinTeam(team.id)
+                            handleWithdrawRequest(team.id)
                           }}
-                          className="px-3 py-1 bg-green-500 text-white text-xs font-black rounded hover:bg-green-600 transition-colors"
+                          className="px-3 py-1 bg-yellow-500 text-white text-xs font-black rounded hover:bg-yellow-600 transition-colors"
                         >
-                          REQUEST TO JOIN
+                          WITHDRAW REQUEST
                         </button>
                       )}
                     </div>
@@ -352,6 +418,64 @@ export default function BrowseTeams({ currentUser }: BrowseTeamsProps) {
           }}
           currentUserId={currentUser?.id}
         />
+      )}
+
+      {/* Role Selection Modal */}
+      {showRoleModal && selectedTeamForJoin && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center"
+        >
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowRoleModal(false)}
+          />
+          <motion.div
+            initial={{ scale: 0.95, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            className="relative bg-white border-2 border-black shadow-[6px_6px_0px_rgba(0,0,0,1)] p-6 max-w-md w-full mx-4"
+          >
+            <h2 className="text-2xl font-black text-gray-900 mb-4">
+              Select Your Role for {selectedTeamForJoin.name}
+            </h2>
+
+            <div className="space-y-2 mb-6">
+              {selectedTeamForJoin.looking_for_roles.map((role) => (
+                <label
+                  key={role}
+                  className="flex items-center p-3 border-2 border-black hover:bg-amber-50 cursor-pointer transition-colors"
+                >
+                  <input
+                    type="radio"
+                    name="role"
+                    value={role}
+                    checked={selectedRole === role}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                    className="mr-3"
+                  />
+                  <span className="font-bold text-gray-900">{role}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRoleModal(false)}
+                className="flex-1 py-2 px-4 bg-gray-200 hover:bg-gray-300 text-black font-black border-2 border-black transition-colors"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={handleJoinTeam}
+                className="flex-1 py-2 px-4 bg-green-500 hover:bg-green-600 text-white font-black border-2 border-black transition-colors"
+              >
+                SEND REQUEST
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
       )}
     </>
   )

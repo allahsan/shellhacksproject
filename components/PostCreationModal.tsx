@@ -54,7 +54,6 @@ export default function PostCreationModal({
         .from('team_members')
         .select('team_id')
         .eq('profile_id', profileId)
-        .eq('status', 'active')
         .single()
 
       if (teamMember) {

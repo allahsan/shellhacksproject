@@ -44,7 +44,6 @@ export default function RequestStatusPage() {
         .from('team_members')
         .select('team_id')
         .eq('profile_id', storedProfileId)
-        .eq('status', 'active')
         .single()
 
       if (memberData) {

@@ -337,10 +337,10 @@ function HomePageContent() {
   }
 
   const calculateHackathonProgress = () => {
-    // Hackathon starts: September 26, 2025 at 3:00 PM EST
-    // Hackathon ends: September 28, 2025 at 6:00 PM EST
-    const startDate = new Date('2025-09-26T15:00:00-04:00') // 3 PM EST
-    const endDate = new Date('2025-09-28T18:00:00-04:00') // 6 PM EST
+    // Hackathon starts: September 26, 2025 at 11:00 PM EST
+    // Hackathon ends: September 28, 2025 at 11:00 AM EST
+    const startDate = new Date('2025-09-26T23:00:00-04:00') // 11 PM EST
+    const endDate = new Date('2025-09-28T11:00:00-04:00') // 11 AM EST
     const now = new Date()
 
     // If hackathon hasn't started yet

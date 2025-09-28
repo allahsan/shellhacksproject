@@ -196,27 +196,34 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
       const sanitizedEmail = sanitizeInput(profileForm.email)
       const sanitizedSecretCode = sanitizeInput(profileForm.secret_code)
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          email: sanitizedEmail,
-          phone: profileForm.phone, // Already validated
-          secret_code: sanitizedSecretCode,
-          proficiencies: profileForm.proficiencies.slice(0, 20) // Limit skills
-        })
-        .eq('id', profileId)
+      // Use RPC function to bypass RLS restrictions
+      const { data, error } = await (supabase.rpc as any)('update_profile_info', {
+        p_profile_id: profileId,
+        p_email: sanitizedEmail,
+        p_phone: profileForm.phone, // Already validated
+        p_secret_code: sanitizedSecretCode,
+        p_proficiencies: profileForm.proficiencies.slice(0, 20) // Limit skills
+      })
 
-      if (!error) {
+      if (!error && data?.success) {
         setLastSaveTime(Date.now())
         setEditingProfile(false)
         setSaveError('')
         loadUserProfile()
         playSuccessSound()
+      } else if (data?.error) {
+        // Show specific error from the function
+        setSaveError(`😔 ${data.error}`)
+      } else if (error) {
+        // Show database error if any
+        console.error('Database error:', error)
+        setSaveError('😔 Something went wrong. Please try again!')
       } else {
         setSaveError('😔 Something went wrong. Please try again!')
       }
     } catch (error) {
       console.error('Error saving profile:', error)
+      setSaveError('😔 An unexpected error occurred. Please try again!')
     } finally {
       setSaving(false)
     }
@@ -299,34 +306,48 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
 
   const handleAcceptRequest = async (requestId: string) => {
     try {
-      const { error } = await (supabase.rpc as any)('respond_to_request', {
+      const { data, error } = await (supabase.rpc as any)('respond_to_request', {
         p_request_id: requestId,
         p_leader_id: profileId,
         p_accept: true
       })
 
-      if (!error) {
+      if (!error && data?.success) {
         playSuccessSound()
         loadTeamData()
+      } else if (data?.error) {
+        console.error('Failed to accept request:', data.error)
+        alert(`Failed to accept request: ${data.error}`)
+      } else if (error) {
+        console.error('Failed to accept request:', error)
+        alert('Failed to accept request. Please try again.')
       }
     } catch (error) {
       console.error('Error accepting request:', error)
+      alert('An unexpected error occurred. Please try again.')
     }
   }
 
   const handleRejectRequest = async (requestId: string) => {
     try {
-      const { error } = await (supabase.rpc as any)('respond_to_request', {
+      const { data, error } = await (supabase.rpc as any)('respond_to_request', {
         p_request_id: requestId,
         p_leader_id: profileId,
         p_accept: false
       })
 
-      if (!error) {
+      if (!error && data?.success) {
         loadTeamData()
+      } else if (data?.error) {
+        console.error('Failed to reject request:', data.error)
+        alert(`Failed to reject request: ${data.error}`)
+      } else if (error) {
+        console.error('Failed to reject request:', error)
+        alert('Failed to reject request. Please try again.')
       }
     } catch (error) {
       console.error('Error rejecting request:', error)
+      alert('An unexpected error occurred. Please try again.')
     }
   }
 

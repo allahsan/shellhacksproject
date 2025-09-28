@@ -70,6 +70,7 @@ function HomePageContent() {
     const discordAuth = searchParams.get('discord_auth')
     const discordProfileId = searchParams.get('profile_id')
     const discordUsername = searchParams.get('username')
+    const isNewUser = searchParams.get('is_new_user')
 
     if (discordAuth === 'success' && discordProfileId && discordUsername) {
       // Save Discord auth to session
@@ -78,11 +79,17 @@ function HomePageContent() {
       setCurrentUser({ id: discordProfileId, name: discordUsername })
       checkUserTeam(discordProfileId)
 
+      // If it's a new user signup, redirect to profile page
+      if (isNewUser === 'true') {
+        setCurrentView('profile')
+      }
+
       // Clean URL
       const newUrl = new URL(window.location.href)
       newUrl.searchParams.delete('discord_auth')
       newUrl.searchParams.delete('profile_id')
       newUrl.searchParams.delete('username')
+      newUrl.searchParams.delete('is_new_user')
       window.history.replaceState({}, '', newUrl.toString())
     } else {
       // Check if user has a pending request

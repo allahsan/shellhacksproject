@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
 
     let profileId: string
     let userName: string = discordUser.username
+    let isNewUser = false
 
     if (existingUser) {
       // User exists, quick update
@@ -87,7 +88,8 @@ export async function GET(request: NextRequest) {
         }
       }
     } else {
-      // Create new user with Discord
+      // Create new user with Discord - this is a first-time signup
+      isNewUser = true
       const { data: newProfile, error: createError } = await supabase
         .from('profiles')
         .insert({
@@ -120,6 +122,9 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set('discord_auth', 'success')
     redirectUrl.searchParams.set('profile_id', profileId)
     redirectUrl.searchParams.set('username', userName)
+    if (isNewUser) {
+      redirectUrl.searchParams.set('is_new_user', 'true')
+    }
 
     // Set a cookie for faster future logins
     const response = NextResponse.redirect(redirectUrl.toString())

@@ -23,6 +23,8 @@ export default function PostCreationModal({
   const [postType, setPostType] = useState<'update' | 'milestone' | 'looking_for' | 'announcement' | 'achievement'>('update')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [lastPostTime, setLastPostTime] = useState(0)
+  const [attempts, setAttempts] = useState(0)
 
   const postTypes = [
     { value: 'update', label: '💬 Update', description: 'Share what you\'re working on' },
@@ -32,7 +34,46 @@ export default function PostCreationModal({
     { value: 'achievement', label: '🏆 Achievement', description: 'Share your win!' }
   ]
 
+  // Security: Sanitize and validate input
+  const sanitizeInput = (text: string): string => {
+    // Remove any potential SQL injection attempts
+    let cleaned = text.replace(/[';"\\]/g, '')
+    // Remove script tags and other HTML
+    cleaned = cleaned.replace(/<script[^>]*>.*?<\/script>/gi, '')
+    cleaned = cleaned.replace(/<[^>]+>/g, '')
+    // Remove excessive whitespace
+    cleaned = cleaned.replace(/\s+/g, ' ').trim()
+    return cleaned
+  }
+
+  // Security: Check for spam patterns
+  const isSpam = (text: string): boolean => {
+    const spamPatterns = [
+      /viagra|cialis|crypto|bitcoin|nft|casino|lottery|winner/gi,
+      /(https?:\/\/[^\s]+){3,}/g, // Too many URLs
+      /([A-Z]{2,}\s+){5,}/g, // Excessive caps
+      /(.)\1{9,}/g, // Character repeated 10+ times
+    ]
+    return spamPatterns.some(pattern => pattern.test(text))
+  }
+
   const handleSubmit = async () => {
+    // Rate limiting: 30 seconds between posts
+    const now = Date.now()
+    if (now - lastPostTime < 30000) {
+      const secondsLeft = Math.ceil((30000 - (now - lastPostTime)) / 1000)
+      setError(`Whoa there! Wait ${secondsLeft} more seconds before posting again 🚦`)
+      return
+    }
+
+    // Security: Check attempt rate (max 5 attempts per minute)
+    if (attempts >= 5) {
+      setError('Too many attempts! Take a breather and try again in a minute 🛑')
+      setTimeout(() => setAttempts(0), 60000)
+      return
+    }
+    setAttempts(prev => prev + 1)
+
     if (!content.trim()) {
       setError('Come on, write something! Don\'t be shy 😊')
       return
@@ -42,6 +83,21 @@ export default function PostCreationModal({
       setError('Keep it under 1000 characters, we\'re not writing a novel here! 📚')
       return
     }
+
+    // Security: Check for spam
+    if (isSpam(content)) {
+      setError('Your post looks a bit spammy. Try writing something more genuine! 🤖')
+      return
+    }
+
+    // Security: Minimum content length to prevent spam
+    if (content.trim().length < 10) {
+      setError('Give us a bit more detail! At least 10 characters please 📝')
+      return
+    }
+
+    // Sanitize the content
+    const sanitizedContent = sanitizeInput(content)
 
     setLoading(true)
     setError('')
@@ -78,7 +134,7 @@ export default function PostCreationModal({
         .insert({
           team_id: teamId as string, // null for Solo Hackers - cast to satisfy type
           author_id: profileId,
-          content: content.trim(),
+          content: sanitizedContent,
           post_type: postType
         } as any)
 
@@ -86,6 +142,8 @@ export default function PostCreationModal({
 
       // Success!
       setContent('')
+      setLastPostTime(Date.now())
+      setAttempts(0)
       onPostCreated()
       onClose()
     } catch (err: any) {
@@ -123,7 +181,7 @@ export default function PostCreationModal({
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-black">Share with the crowd!</h2>
-                  <p className="text-sm mt-1 font-medium">Don\'t hold back, {userName.split(' ')[0]}!</p>
+                  <p className="text-sm mt-1 font-medium">Don't hold back, {userName.split(' ')[0]}!</p>
                 </div>
                 <button
                   onClick={onClose}
@@ -182,6 +240,16 @@ export default function PostCreationModal({
                   }
                   className="w-full px-4 py-3 border-2 border-black rounded-lg focus:outline-none focus:border-amber-500 transition-colors resize-none h-32 font-medium"
                   maxLength={1000}
+                  onPaste={(e) => {
+                    // Security: Sanitize pasted content
+                    e.preventDefault()
+                    const pastedText = e.clipboardData.getData('text/plain')
+                    const sanitized = sanitizeInput(pastedText.slice(0, 1000))
+                    setContent(prev => {
+                      const newContent = prev + sanitized
+                      return newContent.slice(0, 1000)
+                    })
+                  }}
                 />
                 <div className="flex justify-between mt-2">
                   <p className="text-xs text-gray-500">

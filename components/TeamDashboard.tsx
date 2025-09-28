@@ -96,7 +96,52 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
     }
   }
 
+  // Format phone number as user types
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-digits
+    const phoneNumber = value.replace(/\D/g, '')
+
+    // Format as XXX-XXX-XXXX
+    if (phoneNumber.length <= 3) {
+      return phoneNumber
+    } else if (phoneNumber.length <= 6) {
+      return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3)}`
+    } else {
+      return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`
+    }
+  }
+
+  // Validate email format
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  // Validate phone number (10 digits)
+  const validatePhone = (phone: string) => {
+    const digitsOnly = phone.replace(/\D/g, '')
+    return digitsOnly.length === 10
+  }
+
   const handleSaveProfile = async () => {
+    // Check if phone number is missing
+    if (!profileForm.phone || profileForm.phone.trim() === '') {
+      alert('📱 Please add your phone number so your team can reach you! This helps with quick coordination during the hackathon.')
+      return
+    }
+
+    // Validate phone number format
+    if (!validatePhone(profileForm.phone)) {
+      alert('📱 Please enter a valid 10-digit phone number (e.g., 571-842-2187)')
+      return
+    }
+
+    // Validate email if provided
+    if (profileForm.email && !validateEmail(profileForm.email)) {
+      alert('📧 Please enter a valid email address')
+      return
+    }
+
     setSaving(true)
     try {
       const { error } = await supabase
@@ -282,23 +327,57 @@ export default function TeamDashboard({ profileId, userName }: TeamDashboardProp
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">
+                  Email
+                  {editingProfile && profileForm.email && !validateEmail(profileForm.email) && (
+                    <span className="text-xs text-red-500 ml-2">Invalid email format</span>
+                  )}
+                </label>
                 <input
                   type="email"
                   value={profileForm.email}
                   onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
                   disabled={!editingProfile}
-                  className={`w-full px-3 py-2 border-2 ${editingProfile ? 'border-black' : 'border-gray-300 bg-gray-100'} font-medium`}
+                  placeholder="your.email@example.com"
+                  className={`w-full px-3 py-2 border-2 ${
+                    editingProfile
+                      ? profileForm.email && !validateEmail(profileForm.email)
+                        ? 'border-red-500 bg-red-50'
+                        : 'border-black'
+                      : 'border-gray-300 bg-gray-100'
+                  } font-medium`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Phone</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">
+                  Phone <span className="text-red-500">*</span>
+                  {editingProfile && (
+                    !profileForm.phone ? (
+                      <span className="text-xs text-amber-600 ml-2">Required for team coordination</span>
+                    ) : !validatePhone(profileForm.phone) ? (
+                      <span className="text-xs text-red-500 ml-2">Must be 10 digits</span>
+                    ) : null
+                  )}
+                </label>
                 <input
                   type="tel"
                   value={profileForm.phone}
-                  onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value)
+                    setProfileForm({...profileForm, phone: formatted})
+                  }}
                   disabled={!editingProfile}
-                  className={`w-full px-3 py-2 border-2 ${editingProfile ? 'border-black' : 'border-gray-300 bg-gray-100'} font-medium`}
+                  placeholder="571-842-2187"
+                  maxLength={12}
+                  className={`w-full px-3 py-2 border-2 ${
+                    editingProfile
+                      ? profileForm.phone
+                        ? validatePhone(profileForm.phone)
+                          ? 'border-black'
+                          : 'border-red-500 bg-red-50'
+                        : 'border-amber-500 bg-amber-50'
+                      : 'border-gray-300 bg-gray-100'
+                  } font-medium`}
                 />
               </div>
               <div>

@@ -25,11 +25,11 @@ type TeamMember = {
 
 type JoinRequest = {
   id: string
-  requester_id: string
+  profile_id: string
   requested_role: string
   message: string | null
   status: string
-  requested_at: string
+  created_at: string
   requester: {
     name: string
     proficiencies: string[]
@@ -288,7 +288,7 @@ function ManageTeamPageContent() {
       .from('join_requests')
       .select(`
         *,
-        requester:profiles!join_requests_requester_id_fkey(
+        requester:profiles!join_requests_profile_id_fkey(
           name,
           proficiencies
         )
@@ -340,9 +340,10 @@ function ManageTeamPageContent() {
   const handleJoinRequest = async (requestId: string, accept: boolean) => {
     try {
       const { error } = await (supabase.rpc as any)('respond_to_request', {
-        p_leader_id: profileId,
         p_request_id: requestId,
-        p_accepted: accept
+        p_leader_id: profileId,
+        p_accept: accept,
+        p_response_message: null
       })
 
       if (error) throw error

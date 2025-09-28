@@ -3,7 +3,6 @@ import axios from 'axios'
 const DISCORD_API_ENDPOINT = 'https://discord.com/api/v10'
 const CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || 'PLACEHOLDER'
-const REDIRECT_URI = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!
 
 export interface DiscordUser {
   id: string
@@ -25,10 +24,10 @@ export interface DiscordTokenResponse {
 }
 
 // Generate OAuth2 URL
-export const getDiscordOAuthURL = () => {
+export const getDiscordOAuthURL = (redirectUri: string) => {
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'identify email',
     prompt: 'none'  // Skip authorization if user already authorized
@@ -38,13 +37,13 @@ export const getDiscordOAuthURL = () => {
 }
 
 // Exchange code for tokens
-export const exchangeCodeForTokens = async (code: string): Promise<DiscordTokenResponse> => {
+export const exchangeCodeForTokens = async (code: string, redirectUri: string): Promise<DiscordTokenResponse> => {
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     client_secret: CLIENT_SECRET,
     grant_type: 'authorization_code',
     code,
-    redirect_uri: REDIRECT_URI
+    redirect_uri: redirectUri
   })
 
   try {

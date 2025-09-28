@@ -12,23 +12,29 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const error = searchParams.get('error')
 
+  // Get the origin dynamically
+  const host = request.headers.get('host')
+  const protocol = request.headers.get('x-forwarded-proto') || 'http'
+  const origin = `${protocol}://${host}`
+  const redirectUri = `${origin}/api/auth/discord/callback`
+
   // Handle OAuth errors
   if (error) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/?error=discord_auth_failed`
+      `${origin}/?error=discord_auth_failed`
     )
   }
 
   if (!code) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/?error=no_code`
+      `${origin}/?error=no_code`
     )
   }
 
   try {
     // Parallel fetch: Exchange code for tokens AND prepare base redirect URL
     const [tokens] = await Promise.all([
-      exchangeCodeForTokens(code)
+      exchangeCodeForTokens(code, redirectUri)
     ])
 
     // Get user info from Discord
@@ -110,7 +116,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fast redirect with minimal data
-    const redirectUrl = new URL('/', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000')
+    const redirectUrl = new URL('/', origin)
     redirectUrl.searchParams.set('discord_auth', 'success')
     redirectUrl.searchParams.set('profile_id', profileId)
     redirectUrl.searchParams.set('username', userName)
@@ -128,7 +134,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Discord callback error:', error)
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/?error=discord_callback_failed`
+      `${origin}/?error=discord_callback_failed`
     )
   }
 }
